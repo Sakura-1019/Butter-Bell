@@ -1,0 +1,410 @@
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, net, protocol, safeStorage, shell } from 'electron'
+import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
+import { mkdir, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { basename, dirname, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import type Database from 'better-sqlite3'
+import { openDb } from './db'
+import icon from '../../build/icon.ico?asset'
+import { ignore, listIgnored, listInbox, mergeBundle, rejectBundle, syncArchives } from './inbox'
+import { addPassword, listPasswords, removePassword, reorderPasswords } from './passwords'
+import { addFolder, ignoreFolders, looseFolders } from './loose'
+import { createExtractor, listFolder } from './extractor'
+import { addTag, applyDlsite, applyManual, listGames, purge, removeTag, uninstall } from './games'
+import { closeUnfinished, endSession, startSession } from './play'
+import { createRunner } from './runner'
+import { rankLaunchFiles } from '../core/launch'
+import { nameHints } from '../core/name-hints'
+import { searchKeyword } from '../core/names'
+import { rankCandidates, type ProductDetail } from '../core/dlsite'
+import { createDlsiteClient } from '../core/dlsite-http'
+import type { PostExtractAction } from './extract'
+import { getSetting, now, setSetting } from './settings'
+import { isNewer, latestRelease, parseRepo, releasesApi, type Release } from '../core/update'
+import pkg from '../../package.json'
+
+// 绿色版：数据放在程序旁边。electron-builder 的单文件绿色版运行时会解压到临时目录，
+// 它把真正的程序目录放在 PORTABLE_EXECUTABLE_DIR 里；解压出来的文件夹版靠旁边的 portable 标记文件识别。
+const appDir = process.env.PORTABLE_EXECUTABLE_DIR ?? dirname(process.execPath)
+if (process.env.PORTABLE_EXECUTABLE_DIR || existsSync(join(appDir, 'portable'))) {
+  app.setPath('userData', join(appDir, 'Butter Bell Data'))
+}
+// 开发时用另一份数据（比如试首次设置向导），不碰平时的库
+if (!app.isPackaged && process.env.BUTTER_BELL_DATA) app.setPath('userData', process.env.BUTTER_BELL_DATA)
+
+// 封面用 cover://c/<文件名> 读本地数据目录里的 covers/，渲染进程碰不到 file://
+protocol.registerSchemesAsPrivileged([{ scheme: 'cover', privileges: { standard: true, secure: true } }])
+
+// 和 styles.css 里的 --ground / --muted 保持一致
+const titleBar = () =>
+  nativeTheme.shouldUseDarkColors
+    ? { color: '#212121', symbolColor: '#b4b4b4', height: 36 }
+    : { color: '#ffffff', symbolColor: '#5e5e59', height: 36 }
+
+function createWindow(): void {
+  const win = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 760,
+    minHeight: 520,
+    show: false,
+    backgroundColor: titleBar().color,
+    icon, // 开发时任务栏也显示自己的图标；打包后 exe 自带同一个图标
+    titleBarStyle: 'hidden',
+    titleBarOverlay: titleBar(),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  })
+  nativeTheme.on('updated', () => win.setTitleBarOverlay(titleBar()))
+  win.once('ready-to-show', () => win.show())
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  win.webContents.on('will-navigate', (e) => e.preventDefault())
+
+  if (process.env.ELECTRON_RENDERER_URL) win.loadURL(process.env.ELECTRON_RENDERER_URL)
+  else win.loadFile(join(__dirname, '../renderer/index.html'))
+}
+
+app.whenReady().then(() => {
+  const dataDir = app.getPath('userData')
+  mkdirSync(dataDir, { recursive: true })
+  const db = openDb(join(dataDir, 'library.db'))
+  closeUnfinished(db) // 上次崩溃或强退时没结束的游玩会话
+  nativeTheme.themeSource = (getSetting(db, 'theme') as 'system' | 'light' | 'dark' | null) ?? 'system'
+  if (getSetting(db, 'privacy_on_start') === true) setSetting(db, 'privacy_mode', true)
+  const coversDir = join(dataDir, 'covers')
+  protocol.handle('cover', (req) => net.fetch(pathToFileURL(join(coversDir, basename(decodeURIComponent(new URL(req.url).pathname)))).toString()))
+
+  // 收件箱。每个调用都返回最新的收件箱，界面直接拿来重画。
+  let loose: string[] = [] // 上次扫描游戏目录得到的现成文件夹
+  const inbox = () => ({ dir: getSetting(db, 'archive_dir') as string | null, entries: listInbox(db, loose) })
+  // 现成文件夹加进库（和已卸载游戏同名就接回）；启动文件按文件夹内容判断
+  const addFolderGame = async (folder: string) => {
+    const launch = rankLaunchFiles(await listFolder(join(getSetting(db, 'library_dir') as string, folder)))
+    return addFolder(db, { folderName: folder, launchFile: launch.autoPick, launchCandidates: launch.candidates }, now())
+  }
+  const scan = async () => {
+    const dir = getSetting(db, 'archive_dir') as string | null
+    if (dir && existsSync(dir)) syncArchives(db, await listFiles(dir), now())
+    const lib = getSetting(db, 'library_dir') as string | null
+    if (lib && existsSync(lib)) {
+      const found = looseFolders(db, await listDirs(lib))
+      for (const r of found.reattach) await addFolderGame(r.folder) // 比如从回收站还原了已卸载的游戏：自动接回
+      loose = found.loose
+    } else loose = []
+    return inbox()
+  }
+  ipcMain.handle('inbox:get', inbox)
+  ipcMain.handle('inbox:scan', scan)
+  ipcMain.handle('inbox:choose-dir', async (e) => {
+    const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender)!, { properties: ['openDirectory'] })
+    if (!r.canceled && r.filePaths[0]) setSetting(db, 'archive_dir', r.filePaths[0])
+    return scan()
+  })
+  ipcMain.handle('inbox:merge', (_e, ids: unknown) => (mergeBundle(db, checkIds(ids), now()), inbox()))
+  ipcMain.handle('inbox:reject', (_e, ids: unknown) => (rejectBundle(db, checkIds(ids)), inbox()))
+  ipcMain.handle('inbox:ignore', (_e, ids: unknown, on: unknown) => (ignore(db, checkIds(ids), on === true), inbox()))
+  ipcMain.handle('inbox:ignore-folders', (_e, names: unknown, on: unknown) => (ignoreFolders(db, checkNames(names), on === true, now()), scan()))
+  // 返回新加入（或接回）的游戏 id，界面接着弹补资料
+  ipcMain.handle('inbox:add-folders', async (_e, names: unknown) => {
+    const ids: number[] = []
+    for (const n of checkNames(names)) if (loose.includes(n)) ids.push(await addFolderGame(n))
+    return { ids, state: await scan() }
+  })
+
+  ipcMain.handle('inbox:ignored', () => listIgnored(db))
+
+  // 解压。进度和结果用事件推给界面
+  const cipher = { encrypt: (s: string) => safeStorage.encryptString(s), decrypt: (b: Buffer) => safeStorage.decryptString(b) }
+  const send = (channel: string, ...args: unknown[]) => BrowserWindow.getAllWindows().forEach((w) => w.webContents.send(channel, ...args))
+  const extractor = createExtractor({
+    db,
+    exe: app.isPackaged ? join(process.resourcesPath, '7zip', '7z.exe') : join(app.getAppPath(), 'resources', '7zip', '7z.exe'),
+    cipher,
+    ops: {
+      trash: (p) => shell.trashItem(p),
+      move: async (from, to) => {
+        await mkdir(dirname(to), { recursive: true })
+        await rename(from, to)
+      },
+      exists: existsSync
+    },
+    onJobs: (jobs) => send('extract:jobs', jobs),
+    onFinished: (gameId) => send('extract:finished', gameId)
+  })
+  ipcMain.handle('extract:post-action', () => getSetting(db, 'post_extract_action'))
+  ipcMain.handle('extract:jobs', () => extractor.jobs())
+  // action：第一次解压时弹窗选的；不传就用设置里记住的
+  ipcMain.handle('extract:start', async (e, units: unknown, action: unknown, remember: unknown) => {
+    if (!Array.isArray(units) || !units.every((u) => typeof u?.key === 'string' && Array.isArray(u.ids) && u.ids.every(Number.isInteger)))
+      throw new Error('units 不对')
+    const chosen = action ?? getSetting(db, 'post_extract_action')
+    if (!['keep', 'recycle', 'move'].includes(chosen as string)) throw new Error('解压后处理不对')
+    let lib = getSetting(db, 'library_dir') as string | null
+    if (!lib || !existsSync(lib)) {
+      const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender)!, { title: '选择游戏目录', properties: ['openDirectory'] })
+      if (r.canceled || !r.filePaths[0]) return false
+      setSetting(db, 'library_dir', (lib = r.filePaths[0]))
+    }
+    if (action && remember === true) setSetting(db, 'post_extract_action', action)
+    extractor.start(units.map((u) => ({ key: u.key, ids: u.ids })), chosen as PostExtractAction)
+    return true
+  })
+  ipcMain.handle('extract:retry', (_e, key: unknown, password: unknown, save: unknown) => {
+    if (typeof key !== 'string' || (password !== undefined && typeof password !== 'string')) throw new Error('参数不对')
+    extractor.retry(key, password, save === true)
+  })
+  ipcMain.handle('extract:cancel', (_e, key: unknown) => typeof key === 'string' && extractor.cancel(key))
+
+  // 游戏库、启动文件、DLsite 候选
+  const gameRow = (id: unknown) => {
+    if (!Number.isInteger(id)) throw new Error('id 必须是整数')
+    const g = db.prepare('SELECT id, folder_name, cover_file FROM games WHERE id = ?').get(id) as { id: number; folder_name: string; cover_file: string | null } | undefined
+    if (!g) throw new Error('没有这个游戏')
+    return { ...g, dir: join(getSetting(db, 'library_dir') as string, g.folder_name) }
+  }
+  const launchOptions = async (id: unknown) => {
+    const g = gameRow(id)
+    const current = db.prepare('SELECT launch_file FROM games WHERE id = ?').pluck().get(g.id) as string | null
+    return { ...rankLaunchFiles(existsSync(g.dir) ? await listFolder(g.dir) : []), current }
+  }
+  ipcMain.handle('games:list', () => listGames(db))
+  ipcMain.handle('games:launch-options', (_e, id: unknown) => launchOptions(id))
+  ipcMain.handle('games:set-launch', async (_e, id: unknown, file: unknown) => {
+    if (!(await launchOptions(id)).candidates.includes(file as string)) throw new Error('不是这个游戏里的 exe')
+    db.prepare('UPDATE games SET launch_file = ? WHERE id = ?').run(file, id)
+  })
+  // 预填的关键词：解压出来的内容里读到的名字优先，读不到就用文件夹名清洗出来的关键词
+  ipcMain.handle('games:hints', async (_e, id: unknown) => {
+    const g = gameRow(id)
+    const stem = g.folder_name.replace(/ \(\d+\)$/, '')
+    const read = (p: string) => {
+      try {
+        const file = join(g.dir, p)
+        return statSync(file).size < 256 * 1024 ? readFileSync(file, 'utf8') : undefined
+      } catch {
+        return undefined
+      }
+    }
+    const hints = nameHints(stem, existsSync(g.dir) ? await listFolder(g.dir) : [], read)
+    return { ...hints, keyword: hints.keywords[0] ?? searchKeyword(stem), folderName: g.folder_name }
+  })
+
+  // 用 Chromium 的网络栈：跟随系统代理设置，Node 自带的 fetch 不走代理
+  const dlsite = createDlsiteClient({ fetch: net.fetch as typeof fetch })
+  const details = new Map<string, ProductDetail>() // 选定时用，不用再请求一次
+  ipcMain.handle('dlsite:search', async (_e, keyword: unknown) => {
+    if (typeof keyword !== 'string' || !keyword.trim()) return []
+    return rankCandidates(keyword, await dlsite.search(keyword))
+  })
+  ipcMain.handle('dlsite:product', async (_e, code: unknown) => {
+    const d = await dlsite.product(String(code))
+    if (d) details.set(d.code, d)
+    return d
+  })
+
+  // 新封面换掉旧封面；文件名带时间，界面上不会读到缓存的旧图
+  const saveCover = async (gameId: number, old: string | null, bytes: Uint8Array, ext: string) => {
+    await mkdir(coversDir, { recursive: true })
+    const file = `covers/${gameId}-${Date.now()}.${ext}`
+    await writeFile(join(dataDir, file), bytes)
+    if (old) await rm(join(dataDir, old), { force: true })
+    return file
+  }
+  ipcMain.handle('games:apply-dlsite', async (_e, id: unknown, code: unknown, tags: unknown) => {
+    const g = gameRow(id)
+    const d = details.get(String(code))
+    if (!d) throw new Error('先取详情')
+    if (!Array.isArray(tags) || !tags.every((t) => typeof t === 'string' && d.genres.includes(t))) throw new Error('标签不对')
+    const res = await net.fetch(d.coverUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+    if (!res.ok) throw new Error(`封面下载失败：${res.status}`)
+    const cover = await saveCover(g.id, g.cover_file, new Uint8Array(await res.arrayBuffer()), d.coverUrl.match(/\.(jpe?g|png|webp)$/i)?.[1] ?? 'jpg')
+    applyDlsite(db, g.id, d, cover, tags)
+  })
+  ipcMain.handle('games:apply-manual', async (_e, id: unknown, title: unknown, bytes: unknown) => {
+    const g = gameRow(id)
+    if (typeof title !== 'string' || !title.trim() || !(bytes instanceof Uint8Array)) throw new Error('名称和封面都要有')
+    const ext = imageType(bytes)
+    if (!ext) throw new Error('封面要是 jpg / png / webp 图片')
+    applyManual(db, g.id, title, await saveCover(g.id, g.cover_file, bytes, ext))
+  })
+
+  // 启动和计时
+  const runner = createRunner({ db, openPath: (p) => shell.openPath(p), onChange: (r) => send('play:running', r) })
+  ipcMain.handle('play:running', () => runner.list())
+  ipcMain.handle('games:launch', async (_e, id: unknown) => {
+    const g = gameRow(id)
+    const row = db.prepare('SELECT launch_file, use_locale_emulator, uninstalled_at FROM games WHERE id = ?').get(g.id) as { launch_file: string | null; use_locale_emulator: number; uninstalled_at: string | null }
+    if (row.uninstalled_at) throw new Error('已卸载')
+    if (!row.launch_file) throw new Error('还没选启动文件')
+    const exe = join(g.dir, row.launch_file)
+    if (!existsSync(exe)) throw new Error(`找不到启动文件：${exe}`)
+    // 纯 HTML 游戏用默认浏览器打开。拿不到游戏进程，所以只记“上次游玩”，不计时长
+    if (/.html?$/i.test(row.launch_file)) {
+      const err = await shell.openPath(exe)
+      if (err) throw new Error(err)
+      const t = now()
+      return endSession(db, startSession(db, g.id, t), t)
+    }
+    const le = row.use_locale_emulator ? (getSetting(db, 'locale_emulator_path') as string | null) : null
+    if (row.use_locale_emulator && (!le || !existsSync(le))) throw new Error('没找到 Locale Emulator，去设置里指定 LEProc.exe')
+    await runner.launch(g.id, exe, g.dir, le)
+  })
+
+  // 详情抽屉里能改的东西
+  ipcMain.handle('games:update', (_e, id: unknown, patch: unknown) => {
+    const g = gameRow(id)
+    const p = patch as { playStatus?: unknown; useLocaleEmulator?: unknown; title?: unknown }
+    if (p.playStatus !== undefined) {
+      if (!['playing', 'wishlist', 'completed'].includes(p.playStatus as string)) throw new Error('状态不对')
+      db.prepare('UPDATE games SET play_status = ? WHERE id = ?').run(p.playStatus, g.id)
+    }
+    if (p.useLocaleEmulator !== undefined) db.prepare('UPDATE games SET use_locale_emulator = ? WHERE id = ?').run(p.useLocaleEmulator === true ? 1 : 0, g.id)
+    if (p.title !== undefined) {
+      if (typeof p.title !== 'string' || !p.title.trim()) throw new Error('名称不能是空的')
+      db.prepare('UPDATE games SET title = ? WHERE id = ?').run(p.title.trim(), g.id)
+    }
+  })
+  ipcMain.handle('games:tag', (_e, id: unknown, name: unknown, on: unknown) => {
+    const g = gameRow(id)
+    if (typeof name !== 'string') throw new Error('标签不对')
+    if (on === true) addTag(db, g.id, name)
+    else removeTag(db, g.id, name)
+  })
+  ipcMain.handle('games:set-cover', async (_e, id: unknown, bytes: unknown) => {
+    const g = gameRow(id)
+    const ext = bytes instanceof Uint8Array && imageType(bytes)
+    if (!ext) throw new Error('封面要是 jpg / png / webp 图片')
+    db.prepare('UPDATE games SET cover_file = ? WHERE id = ?').run(await saveCover(g.id, g.cover_file, bytes as Uint8Array, ext), g.id)
+  })
+  ipcMain.handle('games:open-folder', async (_e, id: unknown) => {
+    const err = await shell.openPath(gameRow(id).dir)
+    if (err) throw new Error(err)
+  })
+  // 卸载：整个游戏文件夹进回收站（shell.trashItem，绝不永久删除），记录留着
+  ipcMain.handle('games:uninstall', async (_e, id: unknown) => {
+    const g = gameRow(id)
+    if (runner.list().some((r) => r.gameId === g.id)) throw new Error('游戏还在运行')
+    // 已卸载的游戏的 folder_name 可能已经被别的游戏用了，绝不能再去回收它
+    if (db.prepare('SELECT uninstalled_at FROM games WHERE id = ?').pluck().get(g.id)) throw new Error('已经卸载了')
+    if (!g.folder_name || /[\\/]|^\.\.?$/.test(g.folder_name)) throw new Error('游戏文件夹不对') // 只会是游戏目录下的一层
+    if (existsSync(g.dir)) await shell.trashItem(g.dir)
+    uninstall(db, g.id, now())
+  })
+  ipcMain.handle('games:purge', async (_e, id: unknown) => {
+    const cover = purge(db, gameRow(id).id)
+    if (cover) await rm(join(dataDir, cover), { force: true })
+  })
+
+  // 常用密码表：界面上默认遮住，明文只在这几个调用里给设置页
+  const passwords = () => listPasswords(db, cipher)
+  ipcMain.handle('passwords:list', passwords)
+  ipcMain.handle('passwords:add', (_e, pw: unknown) => {
+    if (typeof pw !== 'string') throw new Error('密码不对')
+    addPassword(db, pw, cipher, now())
+    return passwords()
+  })
+  ipcMain.handle('passwords:remove', (_e, id: unknown) => (removePassword(db, checkIds([id])[0]), passwords()))
+  ipcMain.handle('passwords:reorder', (_e, ids: unknown) => (reorderPasswords(db, checkIds(ids)), passwords()))
+
+  // 设置
+  const settings = () => ({
+    archiveDir: getSetting(db, 'archive_dir') as string | null,
+    libraryDir: getSetting(db, 'library_dir') as string | null,
+    postExtractAction: getSetting(db, 'post_extract_action') as PostExtractAction | null,
+    localeEmulatorPath: getSetting(db, 'locale_emulator_path') as string | null,
+    privacyMode: getSetting(db, 'privacy_mode') === true,
+    privacyOnStart: getSetting(db, 'privacy_on_start') === true,
+    checkUpdates: getSetting(db, 'check_updates') !== false,
+    theme: (getSetting(db, 'theme') as 'system' | 'light' | 'dark' | null) ?? 'system',
+    language: (getSetting(db, 'language') as string | null) ?? 'zh-CN'
+  })
+  ipcMain.handle('settings:get', settings)
+  ipcMain.handle('settings:set', (_e, key: unknown, value: unknown) => {
+    const ok: Record<string, (v: unknown) => boolean> = {
+      post_extract_action: (v) => v === null || ['keep', 'recycle', 'move'].includes(v as string), // null = 下次解压时再问
+      privacy_mode: (v) => typeof v === 'boolean',
+      privacy_on_start: (v) => typeof v === 'boolean',
+      check_updates: (v) => typeof v === 'boolean',
+      theme: (v) => ['system', 'light', 'dark'].includes(v as string),
+      locale_emulator_path: (v) => v === null,
+      language: (v) => typeof v === 'string' && /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(v) // 有哪些语言由界面决定
+    }
+    if (!ok[key as string]?.(value)) throw new Error('设置项不对')
+    if (value === null) db.prepare('DELETE FROM settings WHERE key = ?').run(key)
+    else setSetting(db, key as string, value)
+    if (key === 'theme') nativeTheme.themeSource = value as 'system' | 'light' | 'dark'
+    return settings()
+  })
+  // 选文件夹 / 选 LEProc.exe 用系统对话框，路径不从界面传进来
+  ipcMain.handle('settings:choose', async (e, key: unknown) => {
+    if (!['archive_dir', 'library_dir', 'locale_emulator_path'].includes(key as string)) throw new Error('设置项不对')
+    const le = key === 'locale_emulator_path'
+    const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender)!, le
+      ? { title: '选择 LEProc.exe', properties: ['openFile'], filters: [{ name: 'LEProc.exe', extensions: ['exe'] }] }
+      : { properties: ['openDirectory'] })
+    if (!r.canceled && r.filePaths[0]) setSetting(db, key as string, r.filePaths[0])
+    return settings()
+  })
+
+  // 检查更新：只问 GitHub 最新的正式版号，不下载、不上传库里的任何东西。
+  // 仓库写在 package.json 的 repository 里，没写就什么请求都不发。
+  const repo = parseRepo((pkg as { repository?: unknown }).repository)
+  let latest: Release | null = null
+  const update = () => ({
+    configured: !!repo,
+    current: app.getVersion(),
+    latest: latest && isNewer(latest.version, app.getVersion()) ? latest : null,
+    dismissed: getSetting(db, 'dismissed_update') as string | null
+  })
+  ipcMain.handle('update:get', update)
+  ipcMain.handle('update:check', async () => {
+    if (!repo) return update()
+    const res = await net.fetch(releasesApi(repo), { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Butter-Bell' } })
+    if (res.status === 404) latest = null // 还没发过正式版
+    else if (!res.ok) throw new Error(`GitHub 返回 ${res.status}`)
+    else latest = latestRelease(await res.json(), repo)
+    return update()
+  })
+  // 侧栏的“×”：这个版本不再提示，出了更新的才再提示
+  ipcMain.handle('update:dismiss', () => (latest && setSetting(db, 'dismissed_update', latest.version), update()))
+  ipcMain.handle('update:open', () => latest && shell.openExternal(latest.url))
+
+  createWindow()
+  app.on('before-quit', () => runner.stop())
+})
+
+// 看文件头判断图片格式，不信扩展名
+function imageType(b: Uint8Array): string | null {
+  if (b[0] === 0xff && b[1] === 0xd8) return 'jpg'
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'png'
+  if (String.fromCharCode(...b.slice(0, 4)) === 'RIFF' && String.fromCharCode(...b.slice(8, 12)) === 'WEBP') return 'webp'
+  return null
+}
+
+// 只读：列出仓库目录根下的文件名和大小，不进子文件夹，不碰文件内容
+async function listFiles(dir: string) {
+  const entries = await readdir(dir, { withFileTypes: true })
+  const files = entries.filter((e) => e.isFile())
+  return Promise.all(files.map(async (e) => ({ name: e.name, size: (await stat(join(dir, e.name))).size })))
+}
+
+// 只读：游戏目录下一层的文件夹名
+async function listDirs(dir: string) {
+  return (await readdir(dir, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name)
+}
+
+function checkNames(names: unknown): string[] {
+  if (!Array.isArray(names) || !names.every((n) => typeof n === 'string')) throw new Error('names 必须是字符串数组')
+  return names
+}
+
+function checkIds(ids: unknown): number[] {
+  if (!Array.isArray(ids) || !ids.every(Number.isInteger)) throw new Error('ids 必须是整数数组')
+  return ids
+}
+
+app.on('window-all-closed', () => app.quit())

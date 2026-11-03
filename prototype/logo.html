@@ -1,0 +1,303 @@
+<!doctype html>
+<!-- PROTOTYPE — Butter Bell logo 方向对比（一次性页面，选定后再画正式的 SVG/ICO） -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Butter Bell Logo</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ground: #212121; --card: #2a2a2a; --raised: #303030; --text: #ececec; --muted: #b4b4b4; --faint: #9b9b9b;
+  --butter: #f2d78e; --butter-deep: #d9b85f; --butter-top: #f8e8b8; --ink: #1c1c1c;
+  --font: "Inter", "PingFang SC", "Microsoft YaHei UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--text); font: 400 14px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+main { max-width: 1180px; margin: 0 auto; padding: 48px 28px 80px; }
+h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 6px; }
+.lead { color: var(--muted); margin: 0 0 32px; max-width: 60ch; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 18px; }
+.opt { background: var(--card); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+.opt header { display: flex; align-items: baseline; gap: 10px; }
+.opt h2 { font-size: 16px; font-weight: 600; margin: 0; }
+.opt .tag { color: var(--faint); font-size: 12px; }
+.opt p { margin: -12px 0 0; color: var(--muted); font-size: 13px; }
+.row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.tile { width: 112px; height: 112px; display: block; }
+.sizes { display: flex; align-items: flex-end; gap: 14px; padding: 14px 16px; border-radius: 12px; background: var(--raised); }
+.sizes svg { display: block; }
+.sizes small { display: block; color: var(--faint); font-size: 11px; text-align: center; margin-top: 6px; }
+.lockups { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lockup { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 12px; font-weight: 600; font-size: 16px; letter-spacing: -0.01em; }
+.lockup.dark { background: #171717; color: #ececec; }
+.lockup.light { background: #ffffff; color: #1a1a18; }
+.lockup svg { width: 26px; height: 26px; flex: none; }
+.taskbar { display: flex; gap: 6px; padding: 6px 10px; background: #1c1c1c; border-radius: 10px; align-items: center; }
+.taskbar span { width: 28px; height: 28px; border-radius: 6px; background: #333; display: block; }
+.taskbar svg { width: 28px; height: 28px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Butter Bell 的 logo 方向</h1>
+  <p class="lead">一共四个方向，每个都摆出了应用图标（深色底和黄油色底）、16 到 48 像素的小尺寸，以及和名字放在一起的样子。小尺寸最要紧：任务栏和窗口左上角只有 16 到 32 像素。</p>
+  <h1 style="font-size:18px">新：掉落的水滴换到中间</h1>
+  <p class="lead" style="margin-bottom:18px">最右边那颗恢复成挂着的长滴，掉下去的换成中间那颗。最后一张是现在的版本，用来对照。</p>
+  <div class="grid" id="mid" style="grid-template-columns:repeat(auto-fill,minmax(460px,1fr));margin-bottom:56px"></div>
+  <h1 style="font-size:18px">上一轮：断口和水滴怎么衔接</h1>
+  <p class="lead" style="margin-bottom:18px">铃铛用定稿的“铃身短、铃口低”，只改最右边那颗：铃口留下的断口和下面的水滴。中间的小图是衔接处放大。</p>
+  <div class="grid" id="joins" style="grid-template-columns:repeat(auto-fill,minmax(460px,1fr));margin-bottom:56px"></div>
+  <h1 style="font-size:18px">上一轮：经典圆钟的几种比例</h1>
+  <p class="lead" style="margin-bottom:18px">铃口宽度和滴落都不变，只调高矮、胖瘦、圆顶大小和铃口外翻。</p>
+  <div class="grid" id="props" style="grid-template-columns:repeat(auto-fill,minmax(360px,1fr));margin-bottom:56px"></div>
+  <h1 style="font-size:18px">上一轮：六种铃铛外形，都套上定稿的滴落</h1>
+  <p class="lead" style="margin-bottom:18px">每张卡片左边的小图是铃铛原形，中间的大图是加了滴落的样子：左边一颗长滴、中间一颗短滴挂着，最右边一颗已经落在半空。</p>
+  <div class="grid" id="bells" style="grid-template-columns:repeat(auto-fill,minmax(360px,1fr));margin-bottom:56px"></div>
+  <h1 style="font-size:18px">上一轮：第一轮的融化铃铛，最右边那颗掉下去了</h1>
+  <p class="lead" style="margin-bottom:18px">左边和中间两颗还挂着，最右边那颗离开了铃口，铃口那里只留一个小尖。</p>
+  <div class="grid" id="final" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr));margin-bottom:56px"></div>
+  <h1 style="font-size:18px">上一轮：几颗挂着，一颗在半空</h1>
+  <p class="lead" style="margin-bottom:18px">铃口挂着没滴下的，下面再有一颗正在往下落。</p>
+  <div class="grid" id="mixed" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr));margin-bottom:56px"></div>
+  <h1 style="font-size:18px">上一轮：一滴悬在半空</h1>
+  <p class="lead" style="margin-bottom:18px">水滴已经离开铃口，上尖下圆。三种位置，全部用深色底。</p>
+  <div class="grid" id="falling" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr));margin-bottom:56px"></div>
+  <h1 style="font-size:18px">上一轮：挂在铃口的滴落</h1>
+  <p class="lead" style="margin-bottom:18px">滴落从铃口用圆角接出来，往下变细，末端是圆的。</p>
+  <div class="grid" id="drips" style="grid-template-columns:repeat(auto-fill,minmax(340px,1fr));margin-bottom:56px"></div>
+  <h1 style="font-size:18px">之前的四个方向</h1>
+  <p class="lead" style="margin-bottom:18px">留着做对比。</p>
+  <div class="grid" id="grid"></div>
+</main>
+<script>
+// 64×64 网格
+const KNOB = '<circle cx="32" cy="8" r="3.2"/>';
+const BELL = 'M32 10c-10.5 0-17 7.6-17 18v8.5l-4.6 7.2c-.9 1.4.1 3.3 1.8 3.3h39.6c1.7 0 2.7-1.9 1.8-3.3L49 36.5V28c0-10.4-6.5-18-17-18z';
+const MARKS = {
+  play: {
+    name: '铃铛 + 播放键', tag: '启动器',
+    desc: '铃铛中间挖出一个播放三角，一眼看出“点这里开游戏”。轮廓最结实，16 像素也认得出。',
+    draw: (fg, bg) => `<g fill="${fg}">${KNOB}<path d="${BELL}"/><path d="M26 51.5a6 6 0 0 0 12 0z"/></g>
+      <path d="M28.5 21.5v13l10.5-6.5z" fill="${bg}" stroke="${bg}" stroke-width="2.4" stroke-linejoin="round"/>`,
+  },
+  melt: {
+    name: '融化的铃铛', tag: '黄油',
+    desc: '铃铛下沿像黄油一样化开往下滴。名字里的两个词都在一个形状里，最有个性；滴落的细节到 16 像素会糊掉一点。',
+    draw: (fg, bg, sheen) => `<g fill="${fg}">${KNOB}
+      <path d="M32 10c-10.5 0-17 7.6-17 18v12c0 2.5-1.5 4-3 5.2-1.2 1-.6 2.8 1 2.8h4.5c1.4 0 2.5 1.1 2.5 2.5v2a3.2 3.2 0 0 0 6.4 0v-1.5c0-1.6 1.2-3 2.8-3h1.4c1.4 0 2.4 1 2.4 2.4a2 2 0 0 0 4 0c0-1.3 1-2.4 2.4-2.4 1.3 0 2.4 1.1 2.4 2.4v5.1a3.4 3.4 0 0 0 6.8 0v-4.8c0-1.5 1-2.7 2.4-2.7 1.6 0 2.2-1.8 1-2.8-1.5-1.2-3-2.7-3-5.2V28c0-10.4-6.5-18-17-18z"/></g>
+      <path d="M21.5 27c0-4.6 2.6-8.3 6.5-9.6" fill="none" stroke="${sheen}" stroke-width="3" stroke-linecap="round"/>`,
+  },
+  pat: {
+    name: '一块黄油', tag: '方块',
+    desc: '立体的黄油块，顶面压着一个铃铛印。最像“图标”，摆在 Windows 开始菜单里很稳；但铃铛小，远看主要是一块方块。',
+    draw: (fg, bg, sheen, mono) => mono
+      ? `<g fill="${fg}" stroke="${fg}" stroke-width="3" stroke-linejoin="round"><path d="M32 11 52 22 32 33 12 22z" opacity=".55"/><path d="M12 22 32 33v21L12 43z" opacity=".8"/><path d="M32 33 52 22v21L32 54z"/></g>
+         <path d="M32 14.5c-2.4 0-3.9 1.7-3.9 4.1v2l-1.2 1.6c-.3.4 0 .9.5.9h9.2c.5 0 .8-.5.5-.9l-1.2-1.6v-2c0-2.4-1.5-4.1-3.9-4.1z" fill="${bg}"/>`
+      : `<g stroke-width="3" stroke-linejoin="round">
+          <path d="M32 11 52 22 32 33 12 22z" fill="var(--butter-top)" stroke="var(--butter-top)"/>
+          <path d="M12 22 32 33v21L12 43z" fill="var(--butter)" stroke="var(--butter)"/>
+          <path d="M32 33 52 22v21L32 54z" fill="var(--butter-deep)" stroke="var(--butter-deep)"/></g>
+         <path d="M32 14.5c-2.4 0-3.9 1.7-3.9 4.1v2l-1.2 1.6c-.3.4 0 .9.5.9h9.2c.5 0 .8-.5.5-.9l-1.2-1.6v-2c0-2.4-1.5-4.1-3.9-4.1z" fill="var(--butter-deep)"/>`,
+  },
+  line: {
+    name: '一笔铃铛', tag: '极简',
+    desc: '用同样粗细的线条画出铃铛，像 Apple 的系统图标。最安静，和界面里的线性图标是一家；作为品牌，存在感最弱。',
+    draw: (fg) => `<g fill="none" stroke="${fg}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 42V29a14 14 0 0 1 28 0v13"/><path d="M12 43h40"/><path d="M32 10v5"/></g><circle cx="32" cy="51" r="3.6" fill="${fg}"/>`,
+  },
+};
+// 融化铃铛的三种滴法：滴落从铃口用内凹圆角接出来，越往下越细，末端是圆的
+const RIM_L = 'M32 10c-10.5 0-17 7.6-17 18v12c0 2.5-1.5 4-3 5.2-1.2 1-.6 2.8 1 2.8';
+const RIM_R = 'H51c1.6 0 2.2-1.8 1-2.8-1.5-1.2-3-2.7-3-5.2V28c0-10.4-6.5-18-17-18z';
+const DRIPS = {
+  two: { name: '两滴，一长一短', desc: '左边一滴长、右边一滴短，像刚开始化。',
+    d: RIM_L + 'H17c1.5 0 2.2 1.2 2.2 2.8v2.7a3.3 3.3 0 0 0 6.6 0v-2.7c0-1.6.7-2.8 2.2-2.8H34c1.2 0 1.8.9 1.8 2.1a2.6 2.6 0 0 0 5.2 0c0-1.2.6-2.1 1.8-2.1' + RIM_R },
+  three: { name: '三滴，长短错落', desc: '长、短、中三滴，化得更明显，也最热闹。',
+    d: RIM_L + 'H15.5c1.4 0 2 1 2 2.4v1.6a3 3 0 0 0 6 0v-1.6c0-1.4.6-2.4 2-2.4H29c.9 0 1.4.7 1.4 1.5a1.6 1.6 0 0 0 3.2 0c0-.8.5-1.5 1.4-1.5h1.5c1.4 0 2 1 2 2.4v4.3a3.2 3.2 0 0 0 6.4 0v-4.3c0-1.4.6-2.4 2-2.4' + RIM_R },
+  one: { name: '只有一滴', desc: '铃口平整，只在偏右挂一滴。最干净，16 像素也清楚。',
+    d: RIM_L + 'H34c1.5 0 2.2 1.2 2.2 2.8v3.7a3.5 3.5 0 0 0 7 0v-3.7c0-1.6.7-2.8 2.2-2.8' + RIM_R },
+};
+// 第三轮：一滴已经离开铃口、悬在半空。drop(cx, top, r)：上尖下圆的水滴
+const drop = (cx, top, r) => `M${cx} ${top}c0 0-${r} ${r * 1.25}-${r} ${r * 1.95}a${r} ${r} 0 0 0 ${r * 2} 0c0-${r * .7}-${r}-${r * 1.95}-${r}-${r * 1.95}z`;
+const stub = (cx) => `H${cx - 2.8}c1.1 0 1.6.8 1.6 1.6a1.2 1.2 0 0 0 2.4 0c0-.8.5-1.6 1.6-1.6`;
+const FALLING = {
+  center: { name: '正中一滴，像铃舌', desc: '铃口平整，水滴落在正中间，刚好在铃舌的位置，一眼还是铃铛。',
+    d: RIM_L + RIM_R + drop(32, 51, 3.6) },
+  side: { name: '偏右一滴，铃口留个小尖', desc: '铃口偏右还挂着一点没滴完的，下面是刚掉下去的那一滴，能看出“正在化”。',
+    d: RIM_L + stub(39) + RIM_R + drop(39, 52.5, 3.3) },
+  sideFar: { name: '偏右一滴，落得更远', desc: '同上，但水滴小一点、离铃口更远，更有下落的感觉；16 像素时水滴最容易丢。',
+    d: RIM_L + stub(39) + RIM_R + drop(39, 54.5, 2.8) },
+};
+// 第四轮：铃口挂着几颗没滴下的，再加一颗已经在半空
+const MIXED = {
+  twoPlusOne: { name: '两颗挂着 + 一颗落下', desc: '左边一颗长的、右边一颗短的挂在铃口，右边那颗下面刚掉下一滴。',
+    d: DRIPS.two.d + drop(38.4, 55.5, 2.9) },
+  threePlusOne: { name: '三颗挂着 + 一颗落下', desc: '长、短、中三颗挂着，中间那颗短的下面落下一滴。',
+    d: DRIPS.three.d + drop(32, 54, 3) },
+  sidesPlusCenter: { name: '两边挂着 + 正中落下', desc: '两颗挂在左右，正中只留个小尖，水滴落在铃舌的位置，最对称。',
+    d: RIM_L + 'H17c1.4 0 2 1 2 2.4v1.4a3 3 0 0 0 6 0v-1.4c0-1.4.6-2.4 2-2.4' + stub(32).replace(/^H[\d.]+/, 'H29.2') + 'H39.3c1.2 0 1.8.9 1.8 2.1a2.6 2.6 0 0 0 5.2 0c0-1.2.6-2.1 1.8-2.1' + RIM_R + drop(32, 52.5, 3.2) },
+};
+// 第五轮：第一轮的融化铃铛，最右边那颗长的改成已经掉下去的水滴，铃口只留个小尖
+const FIRST_LEFT = RIM_L + 'h4.5c1.4 0 2.5 1.1 2.5 2.5v2a3.2 3.2 0 0 0 6.4 0v-1.5c0-1.6 1.2-3 2.8-3h1.4c1.4 0 2.4 1 2.4 2.4a2 2 0 0 0 4 0c0-1.3 1-2.4 2.4-2.4';
+const FINAL = {
+  near: { name: '水滴刚离开铃口', desc: '右边那颗刚掉下来，离铃口很近，形状饱满。',
+    d: FIRST_LEFT + stub(45.2) + RIM_R + drop(45.2, 52.6, 3.3) },
+  far: { name: '水滴落得远一点', desc: '小一点、离铃口远一点，下落感更强。',
+    d: FIRST_LEFT + stub(45.2) + RIM_R + drop(45.2, 52.5, 2.9) },
+};
+// 第六轮：换铃铛外形。每种只写左半边（从顶点画到铃口左端 13,48），右半边自动镜像；
+// 铃口统一 13→51，这样定稿的滴落（两颗挂着、最右边一颗落在半空）能原样套上去。
+const DRIP_RIM = 'h4.5c1.4 0 2.5 1.1 2.5 2.5v2a3.2 3.2 0 0 0 6.4 0v-1.5c0-1.6 1.2-3 2.8-3h1.4c1.4 0 2.4 1 2.4 2.4a2 2 0 0 0 4 0c0-1.3 1-2.4 2.4-2.4H42.4c1.1 0 1.6.8 1.6 1.6a1.2 1.2 0 0 0 2.4 0c0-.8.5-1.6 1.6-1.6H51';
+const FALL = drop(45.2, 52.5, 2.9);
+const BELLS = {
+  classic: { name: '经典圆钟', desc: '现在用的这个：圆顶、直身、铃口微微外翻。',
+    top: [32, 10], segs: [[21.5, 10, 15, 17.6, 15, 28], [15, 32, 15, 36, 15, 40], [15, 42.5, 13.5, 44, 12, 45.2], [10.8, 46.2, 11.4, 48, 13, 48]], sheen: 'M21.5 27c0-4.6 2.6-8.3 6.5-9.6' },
+  temple: { name: '高身寺钟', desc: '更高更瘦，肩部收窄，腰身慢慢放开，显得端正。',
+    top: [32, 6], segs: [[24, 6, 19.5, 10, 19, 18], [18.5, 26, 18, 33, 16, 39], [15, 42, 12.5, 44.5, 11, 45.5], [10, 46.3, 11.2, 48, 13, 48]], sheen: 'M24 22c0-4.6 1.6-8.6 4.8-10.4' },
+  chubby: { name: '圆胖小铃', desc: '矮一点、圆一点，像一块软软的黄油，最可爱。',
+    top: [32, 14], segs: [[19, 14, 13, 22, 13, 32], [13, 35, 13, 38, 13, 41], [13, 43, 11.5, 44.3, 10.5, 45.2], [9.6, 46.1, 10.6, 48, 13, 48]], sheen: 'M19.5 31c0-4.8 3-8.8 7.4-10.3' },
+  hand: { name: '喇叭手摇铃', desc: '上窄下宽，两侧内凹，像上课用的手摇铃，轮廓最有张力。',
+    top: [32, 10], segs: [[25, 10, 22, 15, 22, 22], [22, 32, 19, 40, 12, 44.6], [10.6, 45.6, 11.2, 48, 13, 48]], sheen: 'M26 25c0-4.4 1.2-7.6 3.6-9.2' },
+  geo: { name: '几何梯形', desc: '平顶、直线斜边、圆角收口，最像一个现代图标。',
+    top: [32, 12], segs: [[28, 12, 26, 12, 24, 12], [20.5, 12, 18.5, 14, 18.2, 17.5], [17.6, 25, 17, 32.5, 16.5, 40], [16.3, 42.5, 14, 44, 12.2, 45], [10.9, 45.8, 11.4, 48, 13, 48]], sheen: 'M22.6 30l.8-11' },
+  church: { name: '宽口教堂钟', desc: '圆顶下面腰身收紧，铃口明显张开，最像真的铜钟。',
+    top: [32, 10], segs: [[23, 10, 18, 16, 18, 25], [18, 34, 17, 39, 13.5, 42.5], [11.8, 44.2, 9.5, 45, 10, 46.6], [10.3, 47.6, 11.5, 48, 13, 48]], sheen: 'M22.5 27c0-4.4 2.2-8 5.6-9.4' },
+};
+// 第七轮：经典圆钟的比例。top 顶点高度，w 铃身半宽，straight 直身结束的高度，flare 铃口外翻到的 x
+function classic({ top, w, straight, flare = 12, domeDrop = 0 }) {
+  const x = 32 - w, k = w * 0.62;
+  const domeEnd = top + w + 1 + domeDrop;
+  return {
+    top: [32, top],
+    segs: [[32 - k, top, x, top + w * 0.45 + domeDrop * .5, x, domeEnd], [x, domeEnd + 4, x, straight - 4, x, straight],
+      [x, straight + 2.5, flare + 1.5, straight + 4, flare, 45.2], [flare - 1.2, 46.2, 11.4, 48, 13, 48]],
+    sheen: `M${x + 6.5} ${top + 17}c0-4.6 2.6-8.3 6.5-9.6`,
+  };
+}
+const PROPS = {
+  now: { name: '现在的比例', desc: '作为对照。', ...classic({ top: 10, w: 17, straight: 40 }) },
+  tall: { name: '更高一点', desc: '顶点抬高 4，铃身稍窄，整体修长。', ...classic({ top: 6, w: 16, straight: 41 }) },
+  squat: { name: '更矮更宽', desc: '顶点压低 4，铃身加宽，更圆润敦实。', ...classic({ top: 14, w: 18, straight: 40 }) },
+  dome: { name: '圆顶更大', desc: '圆顶往下延伸，直身变短，像一个饱满的半球。', ...classic({ top: 9, w: 17, straight: 41, domeDrop: 5 }) },
+  narrow: { name: '铃身收窄、铃口外翻更大', desc: '身子瘦一点，铃口张得更开，对比更强。', ...classic({ top: 9, w: 15, straight: 40, flare: 10.5 }) },
+  short: { name: '铃身短、铃口低', desc: '顶点不变，直身部分最短，重心往下，显得稳。', ...classic({ top: 12, w: 17.5, straight: 38 }) },
+};
+const mx = (x) => +(64 - x).toFixed(2);
+function bellPath(b, rim) {
+  const [tx, ty] = b.top;
+  let left = `M${tx} ${ty}` + b.segs.map(s => `C${s.join(' ')}`).join('');
+  // 右半边：把左半边倒着走一遍，x 取镜像
+  const pts = [[tx, ty], ...b.segs.map(s => [s[4], s[5]])];
+  let right = '';
+  for (let i = b.segs.length - 1; i >= 0; i--) {
+    const s = b.segs[i], p0 = pts[i];
+    right += `C${mx(s[2])} ${s[3]} ${mx(s[0])} ${s[1]} ${mx(p0[0])} ${p0[1]}`;
+  }
+  return left + rim + right + 'Z';
+}
+const bellDraw = (b, withDrip) => (fg, bg, sheen) => `<g fill="${fg}"><circle cx="32" cy="${b.top[1] - 2}" r="3.2"/>
+  <path d="${bellPath(b, withDrip ? DRIP_RIM : 'H51')}${withDrip ? FALL : ''}"/></g>
+  <path d="${b.sheen}" fill="none" stroke="${sheen}" stroke-width="3" stroke-linecap="round"/>`;
+const bellCard = (b) => {
+  const plain = { draw: bellDraw(b, false) }, melt = { draw: bellDraw(b, true) };
+  return `<section class="opt">
+    <header><h2>${b.name}</h2></header><p>${b.desc}</p>
+    <div class="row">
+      <div style="text-align:center">${svg(tile(plain, 'dark'), 72)}<small style="display:block;color:var(--faint);font-size:11px;margin-top:6px">原形</small></div>
+      ${svg(tile(melt, 'dark'), 140, 'class="tile" style="width:140px;height:140px"')}
+      <div class="sizes">${[32, 24, 16].map(s => `<div>${svg(tile(melt, 'dark'), s)}<small>${s}</small></div>`).join('')}</div>
+    </div>
+    <div class="lockup dark">${svg(bare(melt, 'var(--butter)', '#171717'), 26)}Butter Bell</div>
+  </section>`;
+};
+const meltDraw = (d) => (fg, bg, sheen) => `<g fill="${fg}">${KNOB}<path d="${d}"/></g>
+  <path d="M21.5 27c0-4.6 2.6-8.3 6.5-9.6" fill="none" stroke="${sheen}" stroke-width="3" stroke-linecap="round"/>`;
+const svg = (inner, size, extra = '') => `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true" ${extra}>${inner}</svg>`;
+// 应用图标：圆角方底 + 标记缩到 76%
+const tile = (m, variant) => {
+  const dark = variant === 'dark';
+  const bg = dark ? '#171717' : 'var(--butter)', fg = dark ? 'var(--butter)' : 'var(--ink)';
+  const sheen = dark ? 'rgba(255,255,255,.55)' : 'rgba(255,255,255,.5)';
+  const inner = m.draw(fg, bg, dark ? sheen : 'var(--butter)', !dark);
+  return `<rect width="64" height="64" rx="15" fill="${bg}"/><g transform="translate(7.7 7.2) scale(.76)">${inner}</g>`;
+};
+const bare = (m, fg, bg) => m.draw(fg, bg, 'rgba(255,255,255,.55)', false);
+
+const dripCard = (v) => {
+  const m = { draw: meltDraw(v.d) };
+  return `<section class="opt">
+    <header><h2>${v.name}</h2></header><p>${v.desc}</p>
+    <div class="row">${svg(tile(m, 'dark'), 140, 'class="tile" style="width:140px;height:140px"')}
+      <div class="sizes">${[48, 32, 24, 16].map(s => `<div>${svg(tile(m, 'dark'), s)}<small>${s}</small></div>`).join('')}</div></div>
+    <div class="row"><div class="taskbar"><span></span>${svg(tile(m, 'dark'), 28)}<span></span><span></span></div>
+      <div class="lockup dark" style="flex:1">${svg(bare(m, 'var(--butter)', '#171717'), 26)}Butter Bell</div></div>
+  </section>`;
+};
+// 第八轮：断口和水滴的衔接。RIM_BASE 是铃口到最右边断口之前那一段
+const RIM_BASE = DRIP_RIM.slice(0, DRIP_RIM.indexOf('H42.4'));
+const JOINS = {
+  hanging: { name: '不滴落：三颗都挂着', desc: '回到第一轮的样子：最右边那颗也还挂在铃口，最长。铃铛是现在定的比例。',
+    rim: ' 1.3 0 2.4 1.1 2.4 2.4v5.1a3.4 3.4 0 0 0 6.8 0v-4.8c0-1.5 1-2.7 2.4-2.7', extra: '' },
+  now: { name: '现在', desc: '作为对照：铃口一个圆鼓包，下面一颗水滴。',
+    rim: 'H42.4c1.1 0 1.6.8 1.6 1.6a1.2 1.2 0 0 0 2.4 0c0-.8.5-1.6 1.6-1.6H51', extra: 'M45.2 52.5c0 0-2.9 3.625-2.9 5.655a2.9 2.9 0 0 0 5.8 0c0-2.03-2.9-5.655-2.9-5.655z' },
+  tip: { name: '断口收成小尖', desc: '铃口那颗往下收成一个小尖，水滴的尖朝上对着它，像刚刚断开。',
+    rim: 'H41.6c1.3 0 2 .9 2.3 2.1.3 1.1.5 1.9.9 2.1.2.1.4.1.6 0 .4-.2.6-1 .9-2.1.3-1.2 1-2.1 2.3-2.1H51', extra: 'M45.2 53.6c-.3 1.3-2.9 3.6-2.9 5.6a2.9 2.9 0 0 0 5.8 0c0-2-2.6-4.3-2.9-5.6z' },
+  neck: { name: '细颈还连着', desc: '水滴和铃口之间拉出一根细细的颈，马上就要断，最连贯。',
+    rim: 'H41.6c1.3 0 2 .9 2.3 2.1.3 1.2.8 2.3.9 3.3.05.5-.3 1.1-.9 1.9-.8 1.1-1.6 2.2-1.6 3.4a2.9 2.9 0 0 0 5.8 0c0-1.2-.8-2.3-1.6-3.4-.6-.8-.95-1.4-.9-1.9.1-1 .6-2.1.9-3.3.3-1.2 1-2.1 2.3-2.1H51', extra: '' },
+  bead: { name: '断口 + 小水珠 + 水滴', desc: '断开时甩出一颗很小的水珠，夹在中间，过渡最柔和；16 像素时小水珠会看不见。',
+    rim: 'H41.6c1.3 0 2 .9 2.3 2.1.3 1.1.5 1.9.9 2.1.2.1.4.1.6 0 .4-.2.6-1 .9-2.1.3-1.2 1-2.1 2.3-2.1H51', extra: 'M45.2 53.15a.75.75 0 1 0 .01 0zM45.2 55c-.3 1.2-2.7 3.3-2.7 5.1a2.7 2.7 0 0 0 5.4 0c0-1.8-2.4-3.9-2.7-5.1z' },
+};
+const SHORT = PROPS.short;
+const joinDraw = (j) => (fg, bg, sheen) => `<g fill="${fg}"><circle cx="32" cy="10" r="3.2"/><path d="${bellPath(SHORT, j.rim)}${j.extra}"/></g>
+  <path d="${SHORT.sheen}" fill="none" stroke="${sheen}" stroke-width="3" stroke-linecap="round"/>`;
+// 第九轮：回到“现在”，但掉落的水滴换到中间；最右边那颗恢复成挂着的长滴
+const LEFT_PART = 'h4.5c1.4 0 2.5 1.1 2.5 2.5v2a3.2 3.2 0 0 0 6.4 0v-1.5c0-1.6 1.2-3 2.8-3';
+const RIGHT_LONG = 'H39.4c1.3 0 2.4 1.1 2.4 2.4v5.1a3.4 3.4 0 0 0 6.8 0v-4.8c0-1.5 1-2.7 2.4-2.7';
+const MID = {
+  under: { name: '水滴落在中间那颗下面', desc: '中间那颗短滴掉了下去，铃口留个小尖；左右两颗长滴还挂着。',
+    rim: LEFT_PART + 'H32.2c1.1 0 1.6.8 1.6 1.6a1.2 1.2 0 0 0 2.4 0c0-.8.5-1.6 1.6-1.6' + RIGHT_LONG, extra: drop(35, 52.5, 2.9), crop: '26.5 44 17 19' },
+  center: { name: '水滴落在正中', desc: '断口和水滴都在铃铛正中，正好是铃舌的位置，最对称。',
+    rim: LEFT_PART + 'H29.2c1.1 0 1.6.8 1.6 1.6a1.2 1.2 0 0 0 2.4 0c0-.8.5-1.6 1.6-1.6' + RIGHT_LONG, extra: drop(32, 52.5, 2.9), crop: '23.5 44 17 19' },
+  now: JOINS.now,
+};
+const RIM_FROM_13 = (rim) => rim.startsWith('h4.5') ? rim : RIM_BASE + rim;
+const joinCard = (j) => {
+  j = { ...j, rim: RIM_FROM_13(j.rim) };
+  const m = { draw: joinDraw(j) };
+  return `<section class="opt">
+    <header><h2>${j.name}</h2></header><p>${j.desc}</p>
+    <div class="row">${svg(tile(m, 'dark'), 140, 'class="tile" style="width:140px;height:140px"')}
+      <div style="text-align:center"><svg viewBox="${j.crop || '37 44 17 19'}" width="120" height="134" style="background:#171717;border-radius:12px;display:block">${m.draw('var(--butter)', '#171717', 'transparent')}</svg><small style="display:block;color:var(--faint);font-size:11px;margin-top:6px">衔接处放大</small></div>
+      <div class="sizes">${[32, 16].map(s => `<div>${svg(tile(m, 'dark'), s)}<small>${s}</small></div>`).join('')}</div></div>
+  </section>`;
+};
+document.getElementById('mid').innerHTML = Object.values(MID).map(joinCard).join('');
+document.getElementById('joins').innerHTML = Object.values(JOINS).map(joinCard).join('');
+document.getElementById('props').innerHTML = Object.values(PROPS).map(bellCard).join('');
+document.getElementById('bells').innerHTML = Object.values(BELLS).map(bellCard).join('');
+document.getElementById('final').innerHTML = Object.values(FINAL).map(dripCard).join('');
+document.getElementById('mixed').innerHTML = Object.values(MIXED).map(dripCard).join('');
+document.getElementById('falling').innerHTML = Object.values(FALLING).map(dripCard).join('');
+document.getElementById('drips').innerHTML = Object.values(DRIPS).map(dripCard).join('');
+document.getElementById('grid').innerHTML = Object.values(MARKS).map(m => `
+  <section class="opt">
+    <header><h2>${m.name}</h2><span class="tag">${m.tag}</span></header>
+    <p>${m.desc}</p>
+    <div class="row">
+      ${svg(tile(m, 'dark'), 112, 'class="tile"')}
+      ${svg(tile(m, 'butter'), 112, 'class="tile"')}
+      <div class="sizes">${[48, 32, 24, 16].map(s => `<div>${svg(tile(m, 'dark'), s)}<small>${s}</small></div>`).join('')}</div>
+    </div>
+    <div class="row">
+      <div class="taskbar"><span></span>${svg(tile(m, 'dark'), 28)}<span></span><span></span></div>
+      <div class="taskbar" style="background:#f3f3f3"><span style="background:#ddd"></span>${svg(tile(m, 'butter'), 28)}<span style="background:#ddd"></span><span style="background:#ddd"></span></div>
+    </div>
+    <div class="lockups">
+      <div class="lockup dark">${svg(bare(m, 'var(--butter)', '#171717'), 26)}Butter Bell</div>
+      <div class="lockup light">${svg(m === MARKS.pat ? bare(m, '', '#fff') : bare(m, '#1a1a18', '#ffffff'), 26)}Butter Bell</div>
+    </div>
+  </section>`).join('');
+</script>
+</body>
+</html>

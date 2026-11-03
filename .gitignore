@@ -1,0 +1,14 @@
+node_modules/
+out/
+dist/
+*.log
+
+# 本机安装的第三方技能，不进仓库
+.agents/
+.claude/
+.taste-skill/
+skills-lock.json
+
+# 开发笔记：写着本机路径和个人收藏，只留在本机
+游戏管理器-交接文档.md
+CLAUDE.md

@@ -1,0 +1,20 @@
+appId: io.github.butterbell
+productName: Butter Bell
+directories:
+  output: dist
+files:
+  - out/**
+# better-sqlite3 自带 N-API 预编译文件，Electron 能直接用，不需要重新编译
+npmRebuild: false
+win:
+  target: [nsis, portable]
+  # 由 build/icon.svg 和 build/icon-small.svg 导出：npx electron scripts/make-icon.cjs
+  icon: build/icon.ico
+nsis:
+  artifactName: ${productName}-${version}-setup.${ext}
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}
+# 自带 7-Zip（LGPL，许可证随附），见 resources/7zip/README.md
+extraResources:
+  - from: resources/7zip
+    to: 7zip
