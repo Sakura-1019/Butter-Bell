@@ -3,6 +3,7 @@
 import { rankLaunchFiles } from './launch'
 import { normalizeForMatch, searchKeyword } from './names'
 import { extractWorkCode } from './rj'
+import { kanaVariants } from './romaji'
 
 export interface NameHints {
   workCode: string | null
@@ -37,6 +38,8 @@ export function nameHints(stem: string, paths: string[], read: (path: string) =>
     if (!key || GENERIC.has(key) || seen.has(key)) continue
     seen.add(key)
     keywords.push(k)
+    // 罗马音写的名字：紧跟着加上平假名、片假名两个候补，DLsite 只认日文
+    for (const v of kanaVariants(k)) if (!seen.has(normalizeForMatch(v))) seen.add(normalizeForMatch(v)), keywords.push(v)
   }
 
   const workCode = extractWorkCode(stem) ?? files.map(extractWorkCode).find((c) => c !== null) ?? null

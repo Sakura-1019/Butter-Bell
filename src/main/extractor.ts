@@ -1,10 +1,11 @@
 // 解压队列：一次解一个单位（压缩包或同套），解到游戏目录里的临时文件夹，成功后改名成正式文件夹并写成游戏。
 import { existsSync } from 'node:fs'
 import { readdir, rename, rm, statfs } from 'node:fs/promises'
-import { join, relative } from 'node:path'
+import { join, relative, resolve } from 'node:path'
 import type Database from 'better-sqlite3'
 import { groupArchives, type FileEntry } from '../core/volumes'
 import { rankLaunchFiles } from '../core/launch'
+import { extractVersion } from '../core/version'
 import { addGame, passwordCandidates, postExtract, rememberPassword, uniqueFolder, type Cipher, type FileOps, type PasswordTry, type PostExtractAction } from './extract'
 import { ExtractError, extract, flatten, probe, type Failure } from './sevenzip'
 import { getSetting, now } from './settings'
@@ -43,7 +44,9 @@ export async function listFolder(dir: string): Promise<string[]> {
 
 export function createExtractor({ db, exe, cipher, ops, onJobs, onFinished, freeSpace = diskFree }: Deps) {
   const jobs: Job[] = []
-  const extra = new Map<string, { password?: string; save: boolean; action: PostExtractAction }>()
+  // 每个单位这一次的选项：密码、要不要记住、解压到哪（默认游戏目录）、解压后处理
+  type Opt = { password?: string; save: boolean; action: PostExtractAction; target?: string }
+  const extra = new Map<string, Opt>()
   let current: { key: string; abort: AbortController } | null = null
 
   // 失败的原因记在压缩包上，重开程序后也能显示（“先不解压”或解开后清掉）
@@ -98,9 +101,10 @@ export function createExtractor({ db, exe, cipher, ops, onJobs, onFinished, free
     pump()
   }
 
-  async function runJob(job: Job, opt: { password?: string; save: boolean; action: PostExtractAction }, signal: AbortSignal): Promise<number> {
+  async function runJob(job: Job, opt: Opt, signal: AbortSignal): Promise<number> {
     const archiveDir = getSetting(db, 'archive_dir') as string
     const libraryDir = getSetting(db, 'library_dir') as string
+    const targetDir = opt.target ?? libraryDir // 双击弹窗里可以单独选位置，游戏目录外的记完整路径
     const members = job.ids.map((id) => {
       const row = db.prepare('SELECT current_dir, bundle_id FROM archives WHERE id = ?').get(id) as { current_dir: string | null; bundle_id: number | null }
       const vols = db.prepare('SELECT file_name AS name, size FROM volumes WHERE archive_id = ? ORDER BY seq').all(id) as FileEntry[]
@@ -110,7 +114,7 @@ export function createExtractor({ db, exe, cipher, ops, onJobs, onFinished, free
     const bundleId = members.length > 1 ? members[0].bundleId : null
     const name = bundleId !== null ? (db.prepare('SELECT name FROM bundles WHERE id = ?').pluck().get(bundleId) as string) : members[0].stem
 
-    const tmp = join(libraryDir, `.butter-bell-extracting-${job.ids[0]}`)
+    const tmp = join(targetDir, `.butter-bell-extracting-${job.ids[0]}`)
     const used: { id: number; pw: PasswordTry }[] = []
     let folder: string
     try {
@@ -136,7 +140,7 @@ export function createExtractor({ db, exe, cipher, ops, onJobs, onFinished, free
         }
         // .tar.zst 要先解出整个 tar 再解 tar，中间两份同时在盘上
         const need = /\.zst$/i.test(file) ? size * 2 : size
-        const free = await freeSpace(libraryDir)
+        const free = await freeSpace(targetDir)
         if (need > free) throw new ExtractError('disk-full', '', { need, free })
         const target = bundleId !== null ? join(tmp, m.stem) : tmp
         await extract(exe, file, target, pw.password, (p) => {
@@ -146,8 +150,8 @@ export function createExtractor({ db, exe, cipher, ops, onJobs, onFinished, free
         await flatten(target)
         used.push({ id: m.id, pw })
       }
-      folder = uniqueFolder(libraryDir, name, existsSync)
-      await rename(tmp, join(libraryDir, folder))
+      folder = uniqueFolder(targetDir, name, existsSync)
+      await rename(tmp, join(targetDir, folder))
     } catch (e) {
       await rm(tmp, { recursive: true, force: true }) // 只删我们自己刚解出来的临时文件夹
       throw e
@@ -164,17 +168,20 @@ export function createExtractor({ db, exe, cipher, ops, onJobs, onFinished, free
     const placed = []
     for (const m of members)
       placed.push({ id: m.id, subfolder: bundleId !== null ? m.stem : null, currentDir: await postExtract(opt.action, archiveDir, m.dir, m.volumes, ops) })
-    const launch = rankLaunchFiles(await listFolder(join(libraryDir, folder)))
-    return addGame(db, { folderName: folder, launchFile: launch.autoPick, launchCandidates: launch.candidates, members: placed }, t)
+    const launch = rankLaunchFiles(await listFolder(join(targetDir, folder)))
+    const folderName = resolve(targetDir) === resolve(libraryDir) ? folder : join(targetDir, folder)
+    const version = [...members.map((m) => m.stem), folder].map(extractVersion).find((v) => v !== null) ?? null
+    return addGame(db, { folderName, launchFile: launch.autoPick, launchCandidates: launch.candidates, version, members: placed }, t)
   }
 
   return {
     jobs: () => jobs.map((j) => ({ ...j })),
-    start(units: { key: string; ids: number[] }[], action: PostExtractAction) {
+    // 单位上带的 password / save / target / action 只对这一次有效（双击弹窗）；action 没带就用参数里的
+    start(units: { key: string; ids: number[]; password?: string; save?: boolean; target?: string; action?: PostExtractAction }[], action: PostExtractAction) {
       for (const u of units) {
         if (jobs.some((j) => j.key === u.key)) continue
         jobs.push({ key: u.key, ids: u.ids, state: 'queued', pct: 0 })
-        extra.set(u.key, { save: false, action })
+        extra.set(u.key, { password: u.password, save: u.save === true, target: u.target, action: u.action ?? action })
       }
       emit()
       pump()

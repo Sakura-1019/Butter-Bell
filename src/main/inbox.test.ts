@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type Database from 'better-sqlite3'
 import { openDb } from './db'
-import { ignore, listIgnored, listInbox, mergeBundle, rejectBundle, syncArchives } from './inbox'
+import { ignore, listIgnored, listInbox, mergeBundle, rejectBundle, syncArchives, volumePaths } from './inbox'
 import { ignoreFolders } from './loose'
 
 const f = (name: string, size = 100) => ({ name, size })
@@ -74,9 +74,17 @@ describe('listInbox', () => {
   it('普通压缩包：名称、大小、类型、分卷、缺卷', () => {
     syncArchives(db, [f('Foo.part1.rar', 1), f('Foo.part3.rar', 3), f('Bar.7z', 5)], T1)
     expect(listInbox(db)).toEqual([
-      { kind: 'archive', id: 2, name: 'Bar', format: '7z', size: 5, volumes: ['Bar.7z'], missing: [] },
-      { kind: 'archive', id: 1, name: 'Foo', format: 'rar', size: 4, volumes: ['Foo.part1.rar', 'Foo.part3.rar'], missing: [2] }
+      { kind: 'archive', id: 2, name: 'Bar', format: '7z', size: 5, volumes: ['Bar.7z'], missing: [], modifiedAt: T1, firstSeenAt: T1 },
+      { kind: 'archive', id: 1, name: 'Foo', format: 'rar', size: 4, volumes: ['Foo.part1.rar', 'Foo.part3.rar'], missing: [2], modifiedAt: T1, firstSeenAt: T1 }
     ])
+  })
+
+  it('下载时间是文件修改时间，分卷取最新那一卷；扫描时更新', () => {
+    const m = (name: string, mtime: string) => ({ name, size: 1, mtime })
+    syncArchives(db, [m('Foo.part1.rar', '2026-10-01T00:00:00Z'), m('Foo.part2.rar', '2026-10-02T00:00:00Z')], T1)
+    expect(listInbox(db)[0]).toMatchObject({ modifiedAt: '2026-10-02T00:00:00Z', firstSeenAt: T1 })
+    syncArchives(db, [m('Foo.part1.rar', '2026-10-05T00:00:00Z'), m('Foo.part2.rar', '2026-10-02T00:00:00Z')], T2)
+    expect(listInbox(db)[0]).toMatchObject({ modifiedAt: '2026-10-05T00:00:00Z', firstSeenAt: T1 })
   })
 
   it('消失的和忽略的不出现', () => {
@@ -146,5 +154,16 @@ describe('listIgnored：设置里恢复被忽略的条目', () => {
     ignore(db, [1], false)
     expect(listIgnored(db).archives.map((a) => a.id)).toEqual([2])
     expect(listInbox(db).map((e) => e.name)).toEqual(['Foo'])
+  })
+})
+
+describe('volumePaths', () => {
+  it('分卷相对于仓库目录的路径；找不到了的是空数组', () => {
+    syncArchives(db, [f('Foo.part1.rar'), f('Foo.part2.rar'), f('Bar.rar')], T1)
+    expect(volumePaths(db, 1)).toEqual(['Foo.part1.rar', 'Foo.part2.rar'])
+    db.prepare("UPDATE archives SET current_dir = '已解压' WHERE id = 1").run()
+    expect(volumePaths(db, 1)).toEqual(['已解压/Foo.part1.rar', '已解压/Foo.part2.rar'])
+    syncArchives(db, [f('Foo.part1.rar'), f('Foo.part2.rar')], T2)
+    expect(volumePaths(db, 2)).toEqual([])
   })
 })

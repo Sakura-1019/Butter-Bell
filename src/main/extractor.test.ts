@@ -140,3 +140,19 @@ describe('重开程序后还能看到解压失败和要密码', () => {
     expect(setup().ex.jobs()).toEqual([])
   })
 })
+
+it('双击弹窗：这一次单独给密码、解压位置和处理方式；游戏目录外的位置记完整路径，版本号从包名取', async () => {
+  mkdirSync(at('other'))
+  db.prepare("UPDATE archives SET first_volume_name = 'Locked ver1.05.7z' WHERE first_volume_name = 'Locked.7z'").run()
+  db.prepare("UPDATE volumes SET file_name = 'Locked ver1.05.7z' WHERE file_name = 'Locked.7z'").run()
+  const { renameSync } = await import('node:fs')
+  renameSync(at('repo/Locked.7z'), at('repo/Locked ver1.05.7z'))
+  const s = setup()
+  s.ex.start([{ key: 'a2', ids: [idOf('Locked ver1.05.7z')], password: 'secret', save: false, target: at('other'), action: 'keep' }], 'recycle')
+  await s.idle()
+  expect(s.jobs()).toEqual([])
+  expect(readdirSync(at('other'))).toEqual(['Locked ver1.05'])
+  expect(db.prepare('SELECT title, folder_name, version FROM games').get()).toEqual({ title: 'Locked ver1.05', folder_name: at('other', 'Locked ver1.05'), version: '1.05' })
+  expect(s.trashed).toEqual([]) // 这一次选的是保留
+  expect(db.prepare('SELECT COUNT(*) FROM common_passwords').pluck().get()).toBe(0) // 没勾记住
+})

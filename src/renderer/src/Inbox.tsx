@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { InboxEntry, InboxState, Job, PostExtractAction } from '../../preload'
+import { filterInbox, sortInbox, type InboxSort, type InboxSortKey } from '../../core/inbox-view'
 import { ICONS } from './icons'
 import Modal from './Modal'
 
@@ -16,6 +17,7 @@ const keyOf = (u: Unit) => (u.kind === 'archive' ? `a${u.id}` : u.kind === 'fold
 const idsOf = (u: Unit) => (u.kind === 'archive' ? [u.id] : u.kind === 'folder' ? [] : u.members.map((m) => m.id))
 const namesOf = (list: Unit[]) => list.flatMap((u) => (u.kind === 'folder' ? [u.id] : []))
 const sizeOf = (u: Unit) => (u.kind === 'folder' ? 0 : u.size)
+const SORT_KEYS: InboxSortKey[] = ['modified', 'name', 'size', 'added']
 
 export function useSize() {
   const { t } = useTranslation()
@@ -25,52 +27,94 @@ export function useSize() {
   }
 }
 
-// onAdded：现成文件夹加进库后的游戏 id，接着补资料
-export default function Inbox({ state, onChange, jobs, onAdded }: { state: InboxState; onChange: (s: InboxState) => void; jobs: Job[]; onAdded: (ids: number[]) => void }) {
+// 点到行里的按钮、输入框、链接时不算点卡片（复选框除外，它就是用来勾选的）
+const onControl = (e: MouseEvent) => !!(e.target as Element).closest('button:not(.check), input, select, a, label, .pwrow')
+
+interface Props {
+  state: InboxState
+  onChange: (s: InboxState) => void
+  jobs: Job[]
+  onAdded: (ids: number[]) => void // 现成文件夹加进库后的游戏 id，接着补资料
+  query: string // 工具栏的搜索词
+  onClearQuery: () => void
+  sort: InboxSort
+  onSort: (s: InboxSort) => void
+}
+
+export default function Inbox({ state, onChange, jobs, onAdded, query, onClearQuery, sort, onSort }: Props) {
   const { t } = useTranslation()
   const size = useSize()
   const [selected, setSelected] = useState(new Set<string>())
   const [toast, setToast] = useState<{ ids: number[]; names: string[]; n: number }>()
   const timer = useRef<number>(undefined)
-  const [asking, setAsking] = useState(false) // 第一次解压：问压缩包怎么处理
+  const [asking, setAsking] = useState<Unit[]>() // 第一次解压：问压缩包怎么处理
+  const [menu, setMenu] = useState<{ x: number; y: number; unit: Unit; targets: Unit[] }>()
+  const [trashing, setTrashing] = useState<Unit[]>() // 移入回收站前的确认
+  const [confirm, setConfirm] = useState<Unit>() // 双击弹出的确认框
+  const anchor = useRef<string>(undefined) // Shift+点击的起点
+  const before = useRef(selected) // 双击的第一下会切换勾选，双击时恢复成这之前的样子
   const jobOf = (u: Unit) => jobs.find((j) => j.key === keyOf(u))
 
-  const units = unitsOf(state.entries)
-  const live = units.filter((u) => selected.has(keyOf(u)) && !jobOf(u))
-  const all = live.length === 0 ? 'false' : live.length === units.length ? 'true' : 'mixed'
+  const view = filterInbox(sortInbox(state.entries, sort.key, sort.desc), query)
+  const all = unitsOf(state.entries)
+  const units = unitsOf(view) // 看得见的，按显示顺序
+  const free = units.filter((u) => !jobOf(u)) // 正在解压的不能勾选
+  const live = free.filter((u) => selected.has(keyOf(u)))
+  const allState = live.length === 0 ? 'false' : live.length === free.length ? 'true' : 'mixed'
+  const unselect = (list: Unit[]) => setSelected((s) => new Set([...s].filter((k) => !list.some((u) => keyOf(u) === k))))
 
-  const toggle = (k: string) =>
+  // 点卡片任意位置切换勾选；Shift+点击把上次点的到这次点的之间都设成和这一行一样
+  const click = (u: Unit, e: MouseEvent) => {
+    if (jobOf(u) || onControl(e) || e.detail >= 2) return // 双击的第二下不切换
+    before.current = selected
+    const k = keyOf(u)
+    const on = !selected.has(k)
+    const from = anchor.current ? free.findIndex((x) => keyOf(x) === anchor.current) : -1
+    const to = free.findIndex((x) => keyOf(x) === k)
+    const range = e.shiftKey && from >= 0 ? free.slice(Math.min(from, to), Math.max(from, to) + 1).map(keyOf) : [k]
     setSelected((s) => {
       const n = new Set(s)
-      if (!n.delete(k)) n.add(k)
+      for (const r of range) on ? n.add(r) : n.delete(r)
       return n
     })
+    if (!e.shiftKey) anchor.current = k
+  }
+  const doubleClick = (u: Unit, e: MouseEvent) => {
+    if (jobOf(u) || onControl(e)) return
+    setSelected(before.current)
+    setConfirm(u)
+  }
+  // 右键没勾选的卡片只对它自己；右键已勾选的，对所有勾选的（和资源管理器一样）
+  const contextMenu = (u: Unit, e: MouseEvent) => {
+    if (jobOf(u) || onControl(e)) return
+    e.preventDefault()
+    setMenu({ x: e.clientX, y: e.clientY, unit: u, targets: selected.has(keyOf(u)) ? live : [u] })
+  }
 
   const doIgnore = async (list: Unit[]) => {
     const ids = list.flatMap(idsOf)
     const names = namesOf(list)
     if (ids.length) onChange(await window.api.inbox.ignore(ids, true))
     if (names.length) onChange(await window.api.inbox.ignoreFolders(names, true))
-    setSelected((s) => new Set([...s].filter((k) => !list.some((u) => keyOf(u) === k))))
+    unselect(list)
     setToast({ ids, names, n: list.length })
     clearTimeout(timer.current)
     timer.current = window.setTimeout(() => setToast(undefined), 6000)
   }
-  const archives = live.filter((u) => u.kind !== 'folder')
-  const startExtract = async (action?: PostExtractAction, remember?: boolean) => {
-    const list = archives.map((u) => ({ key: keyOf(u), ids: idsOf(u) }))
-    if (await window.api.extract.start(list, action, remember)) setSelected(new Set())
+  const startExtract = async (list: Unit[], action?: PostExtractAction, remember?: boolean) => {
+    const archives = list.filter((u) => u.kind !== 'folder')
+    if (await window.api.extract.start(archives.map((u) => ({ key: keyOf(u), ids: idsOf(u) })), action, remember)) unselect(archives)
   }
-  const onExtract = async () => {
-    // 现成文件夹不用解压，直接加进库
-    const names = namesOf(live)
+  // 解压勾选的（或右键菜单里的）：现成文件夹不用解压，直接加进库
+  const run = async (list: Unit[]) => {
+    const names = namesOf(list)
     if (names.length) {
       const r = await window.api.inbox.addFolders(names)
       onChange(r.state)
       onAdded(r.ids)
-      setSelected((s) => new Set([...s].filter((k) => !names.some((n) => k === `f${n}`))))
+      unselect(list.filter((u) => u.kind === 'folder'))
     }
-    if (archives.length) (await window.api.extract.postAction()) ? startExtract() : setAsking(true)
+    if (list.some((u) => u.kind !== 'folder')) (await window.api.extract.postAction()) ? startExtract(list) : setAsking(list)
   }
 
   const undo = async () => {
@@ -99,10 +143,13 @@ export default function Inbox({ state, onChange, jobs, onAdded }: { state: Inbox
       unit={u}
       checked={selected.has(keyOf(u))}
       job={jobOf(u)}
-      onCheck={() => toggle(keyOf(u))}
+      onClick={(e) => click(u, e)}
+      onDoubleClick={(e) => doubleClick(u, e)}
+      onContextMenu={(e) => contextMenu(u, e)}
       onIgnore={() => doIgnore([u])}
     />
   )
+  const extractLabel = (list: Unit[]) => (list.length && list.every((u) => u.kind === 'folder') ? t('inbox.addFolders') : t('inbox.extract'))
 
   return (
     <>
@@ -110,18 +157,29 @@ export default function Inbox({ state, onChange, jobs, onAdded }: { state: Inbox
         <button
           className="check"
           role="checkbox"
-          aria-checked={all}
+          aria-checked={allState}
           aria-label={t('inbox.selectAll')}
-          disabled={!units.length}
-          onClick={() => setSelected(all === 'true' ? new Set() : new Set(units.map(keyOf)))}
+          disabled={!free.length}
+          onClick={() => setSelected(allState === 'true' ? new Set() : new Set(free.map(keyOf)))}
         >
           {ICONS.check}
         </button>
         <span className="sel num">
           {live.length
             ? t('inbox.selected', { count: live.length })
-            : t('inbox.summary', { count: units.length, size: size(units.reduce((s, u) => s + sizeOf(u), 0)) })}
+            : t('inbox.summary', { count: all.length, size: size(all.reduce((s, u) => s + sizeOf(u), 0)) })}
         </span>
+        <label className="sortctl">
+          <span className="muted small">{t('inbox.sort.label')}</span>
+          <select className="input select" value={sort.key} aria-label={t('inbox.sort.label')} onChange={(e) => onSort({ key: e.target.value as InboxSortKey, desc: e.target.value !== 'name' })}>
+            {SORT_KEYS.map((k) => (
+              <option key={k} value={k}>{t(`inbox.sort.${k}`)}</option>
+            ))}
+          </select>
+          <button className="btn ghost dir" title={t('inbox.sort.flip')} onClick={() => onSort({ key: sort.key, desc: !sort.desc })}>
+            {t(`inbox.sort.${sort.key}${sort.desc ? 'Desc' : 'Asc'}`)}
+          </button>
+        </label>
         <button className="btn ghost" title={state.dir} onClick={async () => onChange(await window.api.inbox.scan())}>
           {ICONS.refresh}
           {t('inbox.rescan')}
@@ -131,8 +189,8 @@ export default function Inbox({ state, onChange, jobs, onAdded }: { state: Inbox
             {t('inbox.ignoreSelected', { count: live.length })}
           </button>
         )}
-        <button className="btn primary" disabled={!live.length} onClick={onExtract}>
-          {live.length && !archives.length ? t('inbox.addFolders') : t('inbox.extract')}
+        <button className="btn primary" disabled={!live.length} onClick={() => run(live)}>
+          {extractLabel(live)}
         </button>
       </div>
 
@@ -141,8 +199,14 @@ export default function Inbox({ state, onChange, jobs, onAdded }: { state: Inbox
           <p>{t('inbox.empty', { dir: state.dir })}</p>
         </div>
       )}
+      {state.entries.length > 0 && !view.length && (
+        <div className="empty-state">
+          <p>{t('library.noMatch', { q: query.trim() })}</p>
+          <button className="btn" onClick={onClearQuery}>{t('library.clearSearch')}</button>
+        </div>
+      )}
 
-      {state.entries.map((e) =>
+      {view.map((e) =>
         e.kind === 'suggestion' ? (
           <div className="setbox" key={e.id}>
             <div className="hd">
@@ -157,7 +221,7 @@ export default function Inbox({ state, onChange, jobs, onAdded }: { state: Inbox
               <button
                 className="btn"
                 onClick={async () => {
-                  setSelected((s) => new Set([...s].filter((k) => !e.members.some((m) => keyOf(m) === k))))
+                  unselect(e.members)
                   onChange(await window.api.inbox.merge(idsOf(e)))
                 }}
               >
@@ -171,13 +235,80 @@ export default function Inbox({ state, onChange, jobs, onAdded }: { state: Inbox
         )
       )}
 
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(undefined)}>
+          <button role="menuitem" onClick={() => (setMenu(undefined), run(menu.targets))}>
+            {t(`inbox.menu.${menu.targets.every((u) => u.kind === 'folder') ? 'add' : 'extract'}${menu.targets.length > 1 ? 'N' : ''}`, { count: menu.targets.length })}
+          </button>
+          {menu.targets.some((u) => u.kind !== 'folder') && (
+            <button role="menuitem" onClick={() => (setMenu(undefined), setTrashing(menu.targets.filter((u) => u.kind !== 'folder')))}>
+              {t('inbox.menu.trash', { count: menu.targets.filter((u) => u.kind !== 'folder').length })}
+            </button>
+          )}
+          <button
+            role="menuitem"
+            onClick={() => {
+              setMenu(undefined)
+              const u = menu.unit
+              window.api.inbox.reveal(u.kind === 'folder' ? 'folder' : 'archive', u.kind === 'folder' ? u.id : idsOf(u)[0])
+            }}
+          >
+            {t('inbox.menu.reveal')}
+          </button>
+        </ContextMenu>
+      )}
+
+      {trashing && (
+        <Modal title={t('inbox.trash.title', { count: trashing.length })} onClose={() => setTrashing(undefined)}>
+          <p>{t('inbox.trash.hint')}</p>
+          <ul className="namelist">
+            {trashing.flatMap((u) => (u.kind === 'archive' ? [u] : u.kind === 'folder' ? [] : u.members)).map((a) => (
+              <li key={a.id}>
+                {a.name}
+                {a.volumes.length > 1 && <small className="muted"> · {t('inbox.volumes', { count: a.volumes.length })}</small>}
+              </li>
+            ))}
+          </ul>
+          <div className="foot">
+            <span className="grow" />
+            <button className="btn ghost" onClick={() => setTrashing(undefined)}>{t('common.cancel')}</button>
+            <button
+              className="btn danger solid"
+              onClick={async () => {
+                const list = trashing
+                setTrashing(undefined)
+                unselect(list)
+                onChange(await window.api.inbox.trash(list.flatMap(idsOf)))
+              }}
+            >
+              {t('inbox.trash.go')}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {confirm &&
+        (confirm.kind === 'folder' ? (
+          <Modal title={t('inbox.confirm.folderTitle')} onClose={() => setConfirm(undefined)}>
+            <p>{t('inbox.confirm.folderHint', { name: confirm.name })}</p>
+            <div className="foot">
+              <span className="grow" />
+              <button className="btn ghost" onClick={() => setConfirm(undefined)}>{t('common.cancel')}</button>
+              <button className="btn primary" onClick={() => (setConfirm(undefined), run([confirm]))}>{t('inbox.addFolders')}</button>
+            </div>
+          </Modal>
+        ) : (
+          <ExtractDialog unit={confirm} onClose={() => setConfirm(undefined)} />
+        ))}
+
       {asking && (
         <PostActionDialog
           dir={state.dir}
-          onCancel={() => setAsking(false)}
+          onCancel={() => setAsking(undefined)}
           onGo={(a, remember) => {
-            setAsking(false)
-            startExtract(a, remember)
+            const list = asking
+            setAsking(undefined)
+            startExtract(list, a, remember)
           }}
         />
       )}
@@ -196,14 +327,121 @@ export default function Inbox({ state, onChange, jobs, onAdded }: { state: Inbox
   )
 }
 
-function Row({ unit, checked, job, onCheck, onIgnore }: { unit: Unit; checked: boolean; job?: Job; onCheck: () => void; onIgnore: () => void }) {
+// 右键菜单：点外面、按 Esc、滚动、窗口失焦都关掉；靠近窗口边缘时往里挪
+function ContextMenu({ x, y, onClose, children }: { x: number; y: number; onClose: () => void; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ x, y })
+  useEffect(() => {
+    const el = ref.current
+    if (el) setPos({ x: Math.min(x, window.innerWidth - el.offsetWidth - 8), y: Math.min(y, window.innerHeight - el.offsetHeight - 8) })
+    el?.querySelector('button')?.focus()
+    const close = (e: Event) => !(e.type === 'mousedown' && el?.contains(e.target as Node)) && onClose()
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('mousedown', close)
+    window.addEventListener('blur', close)
+    window.addEventListener('resize', close)
+    window.addEventListener('keydown', key)
+    document.addEventListener('scroll', close, true)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('blur', close)
+      window.removeEventListener('resize', close)
+      window.removeEventListener('keydown', key)
+      document.removeEventListener('scroll', close, true)
+    }
+  }, [x, y, onClose])
+  return (
+    <div ref={ref} className="ctxmenu" role="menu" style={{ left: pos.x, top: pos.y }} onContextMenu={(e) => e.preventDefault()}>
+      {children}
+    </div>
+  )
+}
+
+// 双击压缩包：这一次单独设密码、解压位置、解压后怎么处理，只对这一次有效
+function ExtractDialog({ unit, onClose }: { unit: Archive | Group; onClose: () => void }) {
+  const { t } = useTranslation()
+  const [lib, setLib] = useState<string | null>(null)
+  const [password, setPassword] = useState('')
+  const [savePw, setSavePw] = useState(true)
+  const [target, setTarget] = useState<string>() // 没选 = 游戏目录
+  const [action, setAction] = useState<PostExtractAction>('move')
+  const [makeDefault, setMakeDefault] = useState(false)
+  useEffect(() => {
+    window.api.settings.get().then((s) => {
+      setLib(s.libraryDir)
+      if (s.postExtractAction) setAction(s.postExtractAction)
+    })
+  }, [])
+  const go = async () => {
+    const ok = await window.api.extract.start(
+      [{ key: keyOf(unit), ids: idsOf(unit), password: password || undefined, save: savePw, target, action }],
+      action,
+      makeDefault
+    )
+    if (ok) onClose()
+  }
+  return (
+    <Modal title={t('inbox.confirm.title', { name: unit.name })} onClose={onClose}>
+      <div className="xform">
+        <label className="field">
+          <span>{t('inbox.confirm.password')}</span>
+          <input className="input" type="password" value={password} placeholder={t('inbox.confirm.passwordHint')} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && go()} />
+        </label>
+        {password && (
+          <label className="remember">
+            <button className="check" role="checkbox" aria-checked={savePw} onClick={() => setSavePw(!savePw)}>{ICONS.check}</button>
+            {t('extract.savePw')}
+          </label>
+        )}
+        <div className="field">
+          <span>{t('inbox.confirm.target')}</span>
+          <div className="pathrow">
+            <span className="path" title={target ?? lib ?? ''}>{target ?? lib ?? t('inbox.confirm.targetUnset')}</span>
+            {target && <button className="linkbtn" onClick={() => setTarget(undefined)}>{t('inbox.confirm.targetReset')}</button>}
+            <button className="linkbtn" onClick={async () => setTarget((await window.api.extract.chooseTarget()) ?? target)}>{t('inbox.confirm.targetChange')}</button>
+          </div>
+        </div>
+        <div className="field">
+          <span>{t('post.title')}</span>
+          <div className="seg" role="radiogroup" aria-label={t('post.title')}>
+            {(['keep', 'recycle', 'move'] as const).map((k) => (
+              <button key={k} role="radio" aria-checked={action === k} aria-pressed={action === k} onClick={() => setAction(k)}>{t(`post.${k}`)}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="foot">
+        <label>
+          <button className="check" role="checkbox" aria-checked={makeDefault} onClick={() => setMakeDefault(!makeDefault)}>{ICONS.check}</button>
+          {t('inbox.confirm.makeDefault')}
+        </label>
+        <button className="btn ghost" onClick={onClose}>{t('common.cancel')}</button>
+        <button className="btn primary" onClick={go}>{t('post.go')}</button>
+      </div>
+    </Modal>
+  )
+}
+
+interface RowProps {
+  unit: Unit
+  checked: boolean
+  job?: Job
+  onClick: (e: MouseEvent) => void
+  onDoubleClick: (e: MouseEvent) => void
+  onContextMenu: (e: MouseEvent) => void
+  onIgnore: () => void
+}
+
+function Row({ unit, checked, job, onClick, onDoubleClick, onContextMenu, onIgnore }: RowProps) {
   const { t } = useTranslation()
   const size = useSize()
   const [open, setOpen] = useState(false)
+  const handlers = { onClick, onDoubleClick, onContextMenu, onMouseDown: (e: MouseEvent) => e.shiftKey && e.preventDefault() } // Shift+点击不要选中文字
+  const cls = (base: string) => `${base}${checked && !job ? ' on' : ''}${job ? '' : ' pick'}`
   if (unit.kind === 'folder')
     return (
-      <div className="arch">
-        <button className="check" role="checkbox" aria-checked={checked} aria-label={t('inbox.select', { name: unit.name })} onClick={onCheck}>
+      <div className={cls('arch')} {...handlers}>
+        <button className="check" role="checkbox" aria-checked={checked} aria-label={t('inbox.select', { name: unit.name })}>
           {ICONS.check}
         </button>
         <div className="ic">{ICONS.folder}</div>
@@ -221,8 +459,8 @@ function Row({ unit, checked, job, onCheck, onIgnore }: { unit: Unit; checked: b
   const missing = isGroup ? [] : unit.missing
 
   return (
-    <div className={job?.state === 'password' || job?.state === 'failed' ? 'arch err' : 'arch'}>
-      <button className="check" role="checkbox" aria-checked={checked && !job} aria-label={t('inbox.select', { name: unit.name })} disabled={!!job} onClick={onCheck}>
+    <div className={cls(job?.state === 'password' || job?.state === 'failed' ? 'arch err' : 'arch')} {...handlers}>
+      <button className="check" role="checkbox" aria-checked={checked && !job} aria-label={t('inbox.select', { name: unit.name })} disabled={!!job}>
         {ICONS.check}
       </button>
       <div className="ic">{isGroup ? ICONS.layers : ICONS.archive}</div>

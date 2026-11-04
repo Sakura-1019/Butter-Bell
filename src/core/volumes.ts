@@ -3,6 +3,7 @@
 export interface FileEntry {
   name: string
   size: number
+  mtime?: string // 文件修改时间（ISO），也就是下载时间；只有扫描仓库目录时才有
 }
 
 export interface Archive {

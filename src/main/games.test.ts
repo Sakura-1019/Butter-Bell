@@ -65,7 +65,7 @@ describe('listGames', () => {
     applyDlsite(db, id, detail, 'covers/1.jpg', ['ADV', 'RPG'])
     setLaunchFile(db, id, 'Game.exe')
     db.prepare("UPDATE games SET uninstalled_at = ? WHERE id = ?").run(T, id)
-    const base = { circle: null, playStatus: 'wishlist', uninstalled: false, useLocaleEmulator: false, tags: [], playSeconds: 0, lastPlayedAt: null }
+    const base = { coverSource: null, version: null, circle: null, playStatus: 'wishlist', uninstalled: false, useLocaleEmulator: false, tags: [], playSeconds: 0, lastPlayedAt: null }
     expect(listGames(db)).toEqual([
       { ...base, id: b, title: 'B', folderName: 'B', coverFile: null, launchFile: 'b.exe', needsMetadata: true, addedAt: '2026-11-04T00:00:00Z' },
       {
@@ -75,6 +75,7 @@ describe('listGames', () => {
         circle: 'Tin Lantern',
         folderName: '01_蒼の旅団',
         coverFile: 'covers/1.jpg',
+        coverSource: 'dlsite',
         launchFile: 'Game.exe',
         needsMetadata: false,
         uninstalled: true,

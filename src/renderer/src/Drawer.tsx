@@ -40,6 +40,8 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
   const [launchOpts, setLaunchOpts] = useState<LaunchOptions>()
   const [addingTag, setAddingTag] = useState(false)
   const [renaming, setRenaming] = useState(false)
+  const [editingVersion, setEditingVersion] = useState(false)
+  const [countdown, setCountdown] = useState(0) // “截取当前画面”的倒数
   const [busy, setBusy] = useState(false)
   const coverInput = useRef<HTMLInputElement>(null)
 
@@ -60,6 +62,20 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
   }, [g.id, g.uninstalled, g.launchFile])
 
   const [elapsed, runSeconds] = useElapsed(running?.startedAt)
+  // 截取当前画面：主进程把游戏窗口切到前面、等 3 秒再截；这边同时倒数
+  const capture = async () => {
+    setCountdown(3)
+    const tick = setInterval(() => setCountdown((n) => Math.max(1, n - 1)), 1000)
+    try {
+      const r = await window.api.games.capture(g.id)
+      onError(t(`drawer.capture${r === 'ok' ? 'Ok' : r === 'blank' ? 'Blank' : r === 'background' ? 'Background' : 'None'}`))
+    } catch (e) {
+      onError(errorText(e))
+    }
+    clearInterval(tick)
+    setCountdown(0)
+    onChange()
+  }
   const html = /.html?$/i.test(g.launchFile ?? '') // 浏览器里玩：不计时长
 
   let launch
@@ -102,6 +118,11 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
           <button className="linkbtn" onClick={() => setRenaming(true)}>{t('drawer.rename')}</button>
           <button className="linkbtn" onClick={() => coverInput.current?.click()}>{t('drawer.changeCover')}</button>
           {!g.needsMetadata && !g.uninstalled && <button className="linkbtn" onClick={() => setModal('identify')}>{t('drawer.reidentify')}</button>}
+          {running && !html && (
+            <button className="linkbtn" disabled={countdown > 0} title={t('drawer.captureHint')} onClick={capture}>
+              {countdown ? t('drawer.captureIn', { n: countdown }) : t('drawer.capture')}
+            </button>
+          )}
           <input
             ref={coverInput}
             type="file"
@@ -118,7 +139,7 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
 
       {g.needsMetadata && !g.uninstalled && (
         <div className="note">
-          <strong>{t('drawer.needsTitle')}</strong>{t('drawer.needsHint')}
+          <strong>{t(g.coverFile ? 'drawer.needsTitleCovered' : 'drawer.needsTitle')}</strong>{t('drawer.needsHint')}
           <div className="acts"><button className="btn" onClick={() => setModal('identify')}>{t('drawer.identify')}</button></div>
         </div>
       )}
@@ -176,6 +197,31 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
       {!g.uninstalled && (
         <div className="d-sec">
           <h3>{t('drawer.launchSec')}</h3>
+          <div className="rowline">
+            {editingVersion ? (
+              <input
+                className="input grow"
+                defaultValue={g.version ?? ''}
+                autoFocus
+                placeholder={t('drawer.versionPlaceholder')}
+                aria-label={t('drawer.versionEdit')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') e.stopPropagation(), setEditingVersion(false)
+                  if (e.key === 'Enter') {
+                    const version = e.currentTarget.value
+                    setEditingVersion(false)
+                    act(() => window.api.games.update(g.id, { version }))
+                  }
+                }}
+                onBlur={() => setEditingVersion(false)}
+              />
+            ) : (
+              <>
+                <div className="lbl">{t('drawer.version')}<small className="num">{g.version ?? t('drawer.versionNone')}</small></div>
+                <button className="linkbtn" onClick={() => setEditingVersion(true)}>{t('drawer.change')}</button>
+              </>
+            )}
+          </div>
           <div className="rowline">
             <div className="lbl">{t('drawer.launchFile')}<small>{g.launchFile ?? t('drawer.noLaunchFile')}</small></div>
             <button className="linkbtn" disabled={!launchOpts?.candidates.length} title={launchOpts && !launchOpts.candidates.length ? t('drawer.noCandidates') : undefined} onClick={() => setModal('launch')}>

@@ -159,12 +159,16 @@ function Picked({ gameId, detail, onBack, onDone }: { gameId: number; detail: Pr
   const { t } = useTranslation()
   const [tags, setTags] = useState(new Set<string>())
   const [busy, setBusy] = useState(false)
+  // 现在的封面是用户手选的：默认保留，勾了才换成 DLsite 的
+  const [manualCover, setManualCover] = useState(false)
+  const [replaceCover, setReplaceCover] = useState(false)
+  useEffect(() => void window.api.games.list().then((gs) => setManualCover(gs.find((x) => x.id === gameId)?.coverSource === 'manual')), [gameId])
   const [error, setError] = useState('')
   const toggle = (g: string) => setTags((s) => (s.delete(g) ? new Set(s) : new Set(s.add(g))))
   const use = async () => {
     setBusy(true)
     try {
-      await window.api.games.applyDlsite(gameId, detail.code, [...tags])
+      await window.api.games.applyDlsite(gameId, detail.code, [...tags], replaceCover)
       onDone()
     } catch (e) {
       setError(errorText(e))
@@ -187,6 +191,12 @@ function Picked({ gameId, detail, onBack, onDone }: { gameId: number; detail: Pr
               ))}
             </div>
           </>
+        )}
+        {manualCover && (
+          <label className="remember">
+            <button className="check" role="checkbox" aria-checked={replaceCover} onClick={() => setReplaceCover(!replaceCover)}>{ICONS.check}</button>
+            {t('setup.replaceCover')}
+          </label>
         )}
         {error && <p className="warn">{t('setup.error', { detail: error })}</p>}
         <div className="row-btns">

@@ -24,12 +24,15 @@ CREATE TABLE games (
   cover_file          TEXT,                          -- 封面，相对于数据目录，如 covers/12.jpg；NULL = 待补封面
   play_status         TEXT NOT NULL DEFAULT 'wishlist'
                       CHECK (play_status IN ('playing', 'wishlist', 'completed')),  -- 在玩 / 想玩 / 通关
-  folder_name         TEXT NOT NULL,                 -- 游戏文件夹，相对于游戏目录；卸载后保留，用来接回
+  folder_name         TEXT NOT NULL,                 -- 游戏文件夹，相对于游戏目录；卸载后保留，用来接回。双击解压到游戏目录外的存完整路径（ADR 0003 补充）
   uninstalled_at      TEXT,                          -- 非 NULL = 已卸载（ADR 0004）
   launch_file         TEXT,                          -- 启动文件，相对于游戏文件夹
   use_locale_emulator INTEGER NOT NULL DEFAULT 0,    -- 用 LE 启动
   source_kind         TEXT CHECK (source_kind IN ('dlsite', 'manual', 'tg')),  -- 资料来源；NULL = 待补资料；'tg' 第二版才用
   source_ref          TEXT,                          -- dlsite：RJ 号；tg（第二版）：频道 + 帖子编号
+  version             TEXT,                          -- 迁移 004：版本号，先从压缩包名取，取不到用文件夹名；接回新版本时更新
+  version_manual      INTEGER NOT NULL DEFAULT 0,    -- 迁移 004：用户在详情页改过版本号，以后不再自动覆盖
+  cover_source        TEXT CHECK (cover_source IN ('manual', 'dlsite', 'folder', 'rpgmaker', 'screenshot')),  -- 迁移 004：封面来源，高的自动替换低的，manual（含手动截图）永不被自动替换
   added_at            TEXT NOT NULL
 );
 -- 同一时刻一个游戏文件夹只属于一个没卸载的游戏
@@ -68,6 +71,7 @@ CREATE TABLE volumes (
   seq         INTEGER NOT NULL,                      -- 从 1 开始
   file_name   TEXT NOT NULL,
   size        INTEGER NOT NULL,
+  modified_at TEXT,                                  -- 迁移 004：文件修改时间 = 下载时间，收件箱按它排序；压缩包取最新那一卷
   PRIMARY KEY (archive_id, seq)
 );
 
@@ -134,6 +138,8 @@ PRAGMA user_version = 1;
 | `privacy_on_start` | `true` / `false` | 每次启动都先模糊，默认 `false` |
 | `theme` | `"system"` / `"light"` / `"dark"` | 默认 `system` |
 | `language` | `"zh-CN"` … | 界面语言 |
+| `inbox_sort` | `{ "key", "desc" }`：key 是 `modified` / `name` / `size` / `added`，desc 是 true / false | 待解压的排序，默认下载时间、新的在前 |
+| `capture_hotkey` | Electron 快捷键写法 / `false` | 手动截图的全局快捷键，默认 `CommandOrControl+Alt+F12`；`false` = 关掉；只在有游戏运行时注册 |
 
 ## 常见操作在表上怎么体现
 
@@ -146,7 +152,8 @@ PRAGMA user_version = 1;
 - **彻底移除记录**：只对已卸载的游戏。删 `games` 那一行，没人用的标签一起删；会话和标签关联跟着删，压缩包的 `game_id` 变 NULL。
 - **从 DLsite 选定候选**：写 `original_title`、`circle`、`description`、`source_kind = 'dlsite'`、`source_ref = RJ 号`；封面下载到 `covers/`；名称只在还是文件夹名时才覆盖。DLsite 类型词只在选候选的界面里列出，勾上的才写进 `tags`，不另存。
 - **游玩时长 / 上次游玩**：`SUM(seconds)` / `MAX(started_at)`。
-- **已有游戏的新版本**：第一版当作一个新游戏，不做关联（第二版和系列作合并一起考虑）。
+- **已有游戏的新版本**：第一版当作一个新游戏，不做关联（第二版和系列作合并一起考虑）。0.2.0 起，接回时（同一个压缩包记录，或同名现成文件夹）`version` 跟着更新，`version_manual = 1` 的除外。
+- **封面优先级**（0.2.0）：手选 > DLsite > 游戏目录里的图片 > RPG Maker 标题画面 > 自动截图。入库、接回、程序启动时在游戏文件夹里找；没封面的游戏启动后自动截图。被替换的封面文件删掉。
 
 ## 第二版预留
 

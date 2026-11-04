@@ -1,12 +1,18 @@
 // 游戏库：列出游戏，把 DLsite 选定的候选或手动填写的资料写进去（见 docs/schema-draft.md 的“从 DLsite 选定候选”）。
+import { basename } from 'node:path'
 import type Database from 'better-sqlite3'
 import type { ProductDetail } from '../core/dlsite'
+import type { CoverSource } from '../core/cover'
+import { extractVersion } from '../core/version'
+import { groupArchives, type FileEntry } from '../core/volumes'
 
 export interface GameCard {
   id: number
   title: string
   folderName: string
   coverFile: string | null // 相对于数据目录
+  coverSource: CoverSource | null
+  version: string | null
   launchFile: string | null
   needsMetadata: boolean // 待补资料
   circle: string | null
@@ -34,6 +40,8 @@ export function listGames(db: Database.Database): GameCard[] {
     title: g.title,
     folderName: g.folder_name,
     coverFile: g.cover_file,
+    coverSource: g.cover_source,
+    version: g.version,
     launchFile: g.launch_file,
     needsMetadata: g.source_kind === null,
     circle: g.circle,
@@ -47,16 +55,47 @@ export function listGames(db: Database.Database): GameCard[] {
   }))
 }
 
-// tags：用户在候选界面里勾上的 DLsite 类型词，没勾的不写
-export function applyDlsite(db: Database.Database, gameId: number, d: ProductDetail, coverFile: string, tags: string[]): void {
+// tags：用户在候选界面里勾上的 DLsite 类型词，没勾的不写。coverFile 为 null = 保留现在的封面（用户手选的、没勾“同时换封面”）
+export function applyDlsite(db: Database.Database, gameId: number, d: ProductDetail, coverFile: string | null, tags: string[]): void {
   db.transaction(() => {
     // 名称只在还是文件夹名（没被用户改过）时才换成 DLsite 的名字
     db.prepare(
-      `UPDATE games SET title = CASE WHEN title = folder_name THEN @title ELSE title END,
-        original_title = @title, circle = @circle, description = @description, cover_file = @coverFile,
+      `UPDATE games SET title = CASE WHEN title = @folder THEN @title ELSE title END,
+        original_title = @title, circle = @circle, description = @description,
         source_kind = 'dlsite', source_ref = @code WHERE id = @gameId`
-    ).run({ title: d.title, circle: d.circle, description: d.description, coverFile, code: d.code, gameId })
+    ).run({ title: d.title, circle: d.circle, description: d.description, code: d.code, gameId, folder: basename(folderOf(db, gameId)) })
+    if (coverFile) setCover(db, gameId, coverFile, 'dlsite')
     for (const t of tags) addTag(db, gameId, t)
+  })()
+}
+
+// 游戏文件夹名；解压到游戏目录外的存的是完整路径，名称只认最后一段
+const folderOf = (db: Database.Database, gameId: number) => db.prepare('SELECT folder_name FROM games WHERE id = ?').pluck().get(gameId) as string
+
+// 换封面并记下来源，返回被换掉的旧文件（相对于数据目录），调用方去删
+export function setCover(db: Database.Database, gameId: number, coverFile: string, source: CoverSource): string | null {
+  const old = db.prepare('SELECT cover_file FROM games WHERE id = ?').pluck().get(gameId) as string | null
+  db.prepare('UPDATE games SET cover_file = ?, cover_source = ? WHERE id = ?').run(coverFile, source, gameId)
+  return old && old !== coverFile ? old : null
+}
+
+// 详情页手动改版本号：以后接回新版本也不再自动覆盖。空的 = 清掉
+export function setVersion(db: Database.Database, gameId: number, version: string): void {
+  db.prepare('UPDATE games SET version = ?, version_manual = 1 WHERE id = ?').run(version.trim() || null, gameId)
+}
+
+// 0.2.0 以前进库的游戏没有版本号：先从压缩包名取，取不到再用文件夹名。手动改过的不动
+export function backfillVersions(db: Database.Database): void {
+  const games = db.prepare('SELECT id, folder_name FROM games WHERE version IS NULL AND version_manual = 0').all() as { id: number; folder_name: string }[]
+  const archives = db.prepare('SELECT id FROM archives WHERE game_id = ? ORDER BY id').pluck()
+  const vols = db.prepare('SELECT file_name AS name, size FROM volumes WHERE archive_id = ? ORDER BY seq')
+  const set = db.prepare('UPDATE games SET version = ? WHERE id = ?')
+  db.transaction(() => {
+    for (const g of games) {
+      const names = (archives.all(g.id) as number[]).map((a) => groupArchives(vols.all(a) as FileEntry[])[0]?.stem).filter(Boolean) as string[]
+      const v = [...names, g.folder_name].map(extractVersion).find((x) => x !== null)
+      if (v) set.run(v, g.id)
+    }
   })()
 }
 
@@ -96,5 +135,5 @@ export function purge(db: Database.Database, gameId: number): string | null {
 }
 
 export function applyManual(db: Database.Database, gameId: number, title: string, coverFile: string): void {
-  db.prepare("UPDATE games SET title = ?, cover_file = ?, source_kind = 'manual', source_ref = NULL WHERE id = ?").run(title.trim(), coverFile, gameId)
+  db.prepare("UPDATE games SET title = ?, cover_file = ?, cover_source = 'manual', source_kind = 'manual', source_ref = NULL WHERE id = ?").run(title.trim(), coverFile, gameId)
 }

@@ -5,6 +5,7 @@ import type { CommonPassword, InboxState, Settings as S, UpdateState } from '../
 import { LANGUAGES } from './i18n'
 import { ICONS } from './icons'
 import { useSize } from './Inbox'
+import { errorText } from './Setup'
 
 export default function Settings({ s, onChange, onInbox, update, onUpdate }: {
   s: S
@@ -47,6 +48,7 @@ export default function Settings({ s, onChange, onInbox, update, onUpdate }: {
         <p className="muted small">{t('settings.leHint')}</p>
         {path(t('settings.lePath'), t('settings.notSet'), s.localeEmulatorPath, 'locale_emulator_path')}
       </section>
+      <Hotkey value={s.captureHotkey} onChange={onChange} />
       <section>
         <h2>{t('settings.look')}</h2>
         {seg(t('settings.theme'), ['system', 'light', 'dark'] as const, s.theme, (v) => t(`settings.themes.${v}`), (v) => set('theme', v))}
@@ -174,6 +176,60 @@ function Ignored({ onInbox }: { onInbox: (i: InboxState) => void }) {
           <button className="linkbtn" onClick={() => restore(window.api.inbox.ignore([a.id], false))}>{t('settings.restore')}</button>
         </div>
       ))}
+    </section>
+  )
+}
+
+const DEFAULT_HOTKEY = 'CommandOrControl+Alt+F12'
+const shown = (k: string) => k.replace('CommandOrControl', 'Ctrl')
+
+// 按下的组合键 → Electron 的快捷键写法；只认字母、数字和 F1–F24，F 键以外要带修饰键
+function accelerator(e: KeyboardEvent): string | null {
+  const key = /^F([1-9]|1\d|2[0-4])$/.test(e.key) ? e.key : /^[a-z0-9]$/i.test(e.key) ? e.key.toUpperCase() : null
+  if (!key) return null
+  const mods = [e.ctrlKey && 'CommandOrControl', e.altKey && 'Alt', e.shiftKey && 'Shift'].filter(Boolean)
+  if (!mods.length && !key.startsWith('F')) return null
+  return [...mods, key].join('+')
+}
+
+// 截图封面：手动截图的全局快捷键，可以改、可以关。只在有游戏运行时才真的占用这个键
+function Hotkey({ value, onChange }: { value: string | false; onChange: (s: S) => void }) {
+  const { t } = useTranslation()
+  const [recording, setRecording] = useState(false)
+  const [error, setError] = useState('')
+  const save = (v: string | false) =>
+    window.api.settings.set('capture_hotkey', v).then(onChange, (e) => setError(errorText(e)))
+  useEffect(() => {
+    if (!recording) return
+    const key = (e: KeyboardEvent) => {
+      e.preventDefault()
+      if (e.key === 'Escape') return setRecording(false)
+      if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return
+      const acc = accelerator(e)
+      if (!acc) return setError(t('settings.captureNeedMod'))
+      setRecording(false)
+      setError('')
+      save(acc)
+    }
+    window.addEventListener('keydown', key, true)
+    return () => window.removeEventListener('keydown', key, true)
+  }, [recording])
+  return (
+    <section>
+      <h2>{t('settings.capture')}</h2>
+      <div className="rowline">
+        <div className="lbl">
+          {t('settings.captureHotkey')}
+          <small>{t('settings.captureHotkeyHint')}</small>
+        </div>
+        {value && (
+          <button className={recording ? 'btn on' : 'btn'} onClick={() => (setError(''), setRecording(!recording))}>
+            {recording ? t('settings.captureRecord') : shown(value)}
+          </button>
+        )}
+        <button className="switch" role="switch" aria-checked={value !== false} aria-label={t('settings.captureHotkey')} onClick={() => (setRecording(false), setError(''), save(value === false ? DEFAULT_HOTKEY : false))} />
+      </div>
+      {error && <p className="warn">{error}</p>}
     </section>
   )
 }

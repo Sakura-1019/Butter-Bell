@@ -1,6 +1,6 @@
 // 解压在数据库上的部分：密码尝试顺序、记住密码、解压后对压缩包的处理、把解压结果写成游戏（见 docs/schema-draft.md）。
 // 真正调用 7-Zip 的在 sevenzip.ts，把两者串起来的在 extractor.ts。
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import type Database from 'better-sqlite3'
 
 // safeStorage 的那一小部分（ADR 0002）；测试里换成假的
@@ -97,6 +97,7 @@ export interface NewGame {
   folderName: string
   launchFile: string | null // rankLaunchFiles 的 autoPick
   launchCandidates?: string[] // 接回时用：原来的启动文件还在里面就接着用
+  version?: string | null // 从压缩包名（取不到再用文件夹名）取出的版本号；接回时也更新，除非用户手动改过
   members: { id: number; subfolder: string | null; currentDir: string | null }[]
 }
 
@@ -120,10 +121,11 @@ export function addGame(db: Database.Database, g: NewGame, now: string): number 
       const old = db.prepare('SELECT launch_file FROM games WHERE id = ?').pluck().get(back) as string | null
       const launch = old && g.launchCandidates?.includes(old) ? old : g.launchFile
       db.prepare('UPDATE games SET uninstalled_at = NULL, folder_name = ?, launch_file = ? WHERE id = ?').run(g.folderName, launch, back)
+      if (g.version) db.prepare('UPDATE games SET version = ? WHERE id = ? AND version_manual = 0').run(g.version, back)
       id = back
     } else
       id = Number(
-        db.prepare('INSERT INTO games (title, folder_name, launch_file, added_at) VALUES (?, ?, ?, ?)').run(g.folderName, g.folderName, g.launchFile, now)
+        db.prepare('INSERT INTO games (title, folder_name, launch_file, version, added_at) VALUES (?, ?, ?, ?, ?)').run(basename(g.folderName), g.folderName, g.launchFile, g.version ?? null, now)
           .lastInsertRowid
       )
     const set = db.prepare(

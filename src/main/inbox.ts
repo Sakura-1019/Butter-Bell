@@ -11,6 +11,8 @@ export interface InboxArchive {
   size: number
   volumes: string[]
   missing: number[]
+  modifiedAt: string // 下载时间：分卷里最新的修改时间（旧数据还没扫到时先用加入时间）
+  firstSeenAt: string // 加入时间
   reattach?: string // 解压后会接回的已卸载游戏的名称
 }
 export interface InboxGroup {
@@ -34,7 +36,7 @@ export function syncArchives(db: Database.Database, files: FileEntry[], now: str
   const insert = db.prepare("INSERT INTO archives (first_volume_name, total_size, format, current_dir, first_seen_at) VALUES (?, ?, ?, '', ?)")
   const back = db.prepare("UPDATE archives SET current_dir = '' WHERE id = ?")
   const clearVolumes = db.prepare('DELETE FROM volumes WHERE archive_id = ?')
-  const addVolume = db.prepare('INSERT INTO volumes (archive_id, seq, file_name, size) VALUES (?, ?, ?, ?)')
+  const addVolume = db.prepare('INSERT INTO volumes (archive_id, seq, file_name, size, modified_at) VALUES (?, ?, ?, ?, ?)')
   const gone = db.prepare("UPDATE archives SET current_dir = NULL WHERE id = ?")
 
   db.transaction(() => {
@@ -44,7 +46,7 @@ export function syncArchives(db: Database.Database, files: FileEntry[], now: str
       if (id === undefined) id = Number(insert.run(a.firstVolumeName, a.totalSize, a.format, now).lastInsertRowid)
       else back.run(id)
       clearVolumes.run(id)
-      a.volumes.forEach((v, i) => addVolume.run(id, i + 1, v.name, v.size))
+      a.volumes.forEach((v, i) => addVolume.run(id, i + 1, v.name, v.size, v.mtime ?? null))
       seen.add(id)
     }
     for (const id of db.prepare("SELECT id FROM archives WHERE current_dir = ''").pluck().all() as number[])
@@ -56,10 +58,11 @@ export function syncArchives(db: Database.Database, files: FileEntry[], now: str
 export function listInbox(db: Database.Database, folders: string[] = []): InboxEntry[] {
   const rows = db
     .prepare(
-      `SELECT a.id, a.bundle_id, g.title AS reattach FROM archives a LEFT JOIN games g ON g.id = a.game_id AND g.uninstalled_at IS NOT NULL
+      `SELECT a.id, a.bundle_id, a.first_seen_at, COALESCE((SELECT MAX(modified_at) FROM volumes WHERE archive_id = a.id), a.first_seen_at) AS modified_at,
+        g.title AS reattach FROM archives a LEFT JOIN games g ON g.id = a.game_id AND g.uninstalled_at IS NOT NULL
       WHERE a.state = 'inbox' AND a.current_dir IS NOT NULL ORDER BY a.first_seen_at DESC, a.first_volume_name`
     )
-    .all() as { id: number; bundle_id: number | null; reattach: string | null }[]
+    .all() as { id: number; bundle_id: number | null; first_seen_at: string; modified_at: string; reattach: string | null }[]
   const vols = db.prepare('SELECT file_name AS name, size FROM volumes WHERE archive_id = ? ORDER BY seq')
   const bundleNames = new Map(
     (db.prepare('SELECT id, name FROM bundles').all() as { id: number; name: string }[]).map((b) => [b.id, b.name])
@@ -76,6 +79,8 @@ export function listInbox(db: Database.Database, folders: string[] = []): InboxE
       size: a.totalSize,
       volumes: a.volumes.map((v) => v.name),
       missing: a.missing,
+      modifiedAt: r.modified_at,
+      firstSeenAt: r.first_seen_at,
       ...(r.reattach !== null && { reattach: r.reattach })
     }
     return { ...r, a, entry }
@@ -136,6 +141,14 @@ export function ignore(db: Database.Database, ids: number[], on: boolean): void 
   db.transaction(() => {
     for (const id of ids) set.run(on ? 'ignored' : 'inbox', id)
   })()
+}
+
+// 压缩包的各个分卷，相对于仓库目录（移入回收站、在资源管理器中显示用）；找不到了返回空数组
+export function volumePaths(db: Database.Database, id: number): string[] {
+  const dir = db.prepare('SELECT current_dir FROM archives WHERE id = ?').pluck().get(id) as string | null | undefined
+  if (dir === null || dir === undefined) return []
+  const files = db.prepare('SELECT file_name FROM volumes WHERE archive_id = ? ORDER BY seq').pluck().all(id) as string[]
+  return files.map((f) => (dir ? `${dir}/${f}` : f))
 }
 
 // 设置页：忽略过的压缩包（还在仓库目录里的）和现成文件夹，可以恢复到收件箱

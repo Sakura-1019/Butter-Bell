@@ -64,7 +64,50 @@
     },
     "reattach": "解压后接回“{{title}}”",
     "folder": "现成文件夹 · 已经在游戏目录里，不用解压，直接加入",
-    "addFolders": "加入游戏库"
+    "addFolders": "加入游戏库",
+    "search": "搜索文件名",
+    "searchLabel": "搜索待解压的文件名",
+    "sort": {
+      "label": "排序",
+      "flip": "切换正序 / 倒序",
+      "modified": "下载时间",
+      "name": "名称",
+      "size": "大小",
+      "added": "加入时间",
+      "modifiedDesc": "新的在前",
+      "modifiedAsc": "旧的在前",
+      "addedDesc": "新的在前",
+      "addedAsc": "旧的在前",
+      "nameAsc": "A → Z",
+      "nameDesc": "Z → A",
+      "sizeDesc": "大的在前",
+      "sizeAsc": "小的在前"
+    },
+    "menu": {
+      "extract": "解压",
+      "extractN": "解压 {{count}} 个",
+      "add": "加入游戏库",
+      "addN": "加入游戏库 {{count}} 个",
+      "trash": "移入回收站",
+      "reveal": "在资源管理器中显示"
+    },
+    "trash": {
+      "title": "把 {{count}} 项移入回收站？",
+      "hint": "下面这些压缩包（包括每一个分卷）会移到回收站，需要时还能从回收站找回。",
+      "go": "移入回收站"
+    },
+    "confirm": {
+      "title": "解压“{{name}}”",
+      "password": "密码",
+      "passwordHint": "不填就用记住的密码和常用密码去试",
+      "target": "解压到",
+      "targetUnset": "还没选游戏目录，开始时会让你选",
+      "targetChange": "更改…",
+      "targetReset": "用游戏目录",
+      "makeDefault": "把这次的处理方式设为默认",
+      "folderTitle": "加入游戏库",
+      "folderHint": "把“{{name}}”加入游戏库？文件夹不会被移动或改名。"
+    }
   },
   "common": {
     "cancel": "取消"
@@ -125,7 +168,8 @@
     "dropCover": "把封面图拖到这里，或点一下选择图片",
     "save": "保存",
     "skip": "先跳过",
-    "skipHint": "跳过后，游戏先以“待补资料”进库，点开它还能再补。"
+    "skipHint": "跳过后，游戏先以“待补资料”进库，点开它还能再补。",
+    "replaceCover": "同时换成 DLsite 的封面（现在的封面是你自己选的）"
   },
   "status": {
     "playing": "在玩",
@@ -179,7 +223,19 @@
     "rename": "改名称",
     "noCandidates": "游戏文件夹里没找到 exe 或 .html",
     "noTiming": "不计时",
-    "htmlHint": "这是网页游戏，会用默认浏览器打开。程序看不到浏览器里的游戏什么时候关，所以只记“上次游玩”，不计游戏时长。"
+    "htmlHint": "这是网页游戏，会用默认浏览器打开。程序看不到浏览器里的游戏什么时候关，所以只记“上次游玩”，不计游戏时长。",
+    "version": "版本",
+    "versionNone": "未知",
+    "versionEdit": "改版本号",
+    "versionPlaceholder": "比如 1.05，回车保存",
+    "capture": "截取当前画面",
+    "captureHint": "游戏正在运行时可用：会切到游戏窗口，3 秒后截图当封面",
+    "captureIn": "{{n}} 秒后截图…",
+    "captureOk": "已换成截图封面",
+    "captureBlank": "画面几乎全黑或是纯色，没有换封面",
+    "captureBackground": "截图时游戏窗口不在最前面，没有换封面",
+    "captureNone": "没找到游戏窗口，没有换封面",
+    "needsTitleCovered": "封面是自动找的，名称还没有补"
   },
   "settings": {
     "dirs": "目录",
@@ -221,7 +277,16 @@
     "ignoredFolder": "现成文件夹",
     "restore": "恢复",
     "language": "界面语言",
-    "languageHint": "目前只有简体中文，欢迎帮忙翻译"
+    "languageHint": "目前只有简体中文，欢迎帮忙翻译",
+    "capture": "截图封面",
+    "captureHotkey": "手动截图快捷键",
+    "captureHotkeyHint": "游戏运行时，按这个键把当前画面截成封面。只在有游戏运行时才占用这个键。",
+    "captureOff": "已关闭",
+    "captureRecord": "点这里，然后按下新的组合键",
+    "captureSet": "更改",
+    "captureDisable": "关掉",
+    "captureEnable": "打开",
+    "captureNeedMod": "要带 Ctrl、Alt 或 Shift"
   },
   "firstRun": {
     "title": "欢迎使用 Butter Bell",

@@ -76,6 +76,8 @@ export function createRunner({ db, openPath, onChange }: Deps) {
 
   return {
     list,
+    // 截图用：这个游戏现在的进程（进程树 + 文件夹里的 exe，LE 启动的也靠文件夹找到）
+    pids: (gameId: number): number[] => [...(games.get(gameId)?.pids ?? [])],
     // exe：启动文件的完整路径；folder：游戏文件夹；leProc：要用 LE 时是 LEProc.exe 的路径
     async launch(gameId: number, exe: string, folder: string, leProc: string | null): Promise<void> {
       if (games.has(gameId)) return

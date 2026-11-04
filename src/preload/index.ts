@@ -9,6 +9,7 @@ import type { Running } from '../main/runner'
 import type { CommonPassword } from '../main/passwords'
 import type { listIgnored } from '../main/inbox'
 import type { Release } from '../core/update'
+import type { InboxSort } from '../core/inbox-view'
 
 export interface Settings {
   archiveDir: string | null
@@ -20,9 +21,11 @@ export interface Settings {
   checkUpdates: boolean
   theme: 'system' | 'light' | 'dark'
   language: string
+  inboxSort: InboxSort // 待解压列表的排序，默认下载时间、新的在前
+  captureHotkey: string | false // 手动截图的全局快捷键（Electron 写法）；false = 关掉
 }
 export type LaunchOptions = LaunchRanking & { current: string | null }
-export type SettingKey = 'post_extract_action' | 'privacy_mode' | 'privacy_on_start' | 'check_updates' | 'theme' | 'locale_emulator_path' | 'language'
+export type SettingKey = 'post_extract_action' | 'privacy_mode' | 'privacy_on_start' | 'check_updates' | 'theme' | 'locale_emulator_path' | 'language' | 'inbox_sort' | 'capture_hotkey'
 export interface UpdateState {
   configured: boolean // package.json 里写了仓库；没写就不检查
   current: string
@@ -53,23 +56,29 @@ const api = {
     ignore: (ids: number[], on: boolean): Promise<InboxState> => ipcRenderer.invoke('inbox:ignore', ids, on),
     ignoreFolders: (names: string[], on: boolean): Promise<InboxState> => ipcRenderer.invoke('inbox:ignore-folders', names, on),
     ignored: (): Promise<ReturnType<typeof listIgnored>> => ipcRenderer.invoke('inbox:ignored'),
-    addFolders: (names: string[]): Promise<{ ids: number[]; state: InboxState }> => ipcRenderer.invoke('inbox:add-folders', names)
+    addFolders: (names: string[]): Promise<{ ids: number[]; state: InboxState }> => ipcRenderer.invoke('inbox:add-folders', names),
+    trash: (ids: number[]): Promise<InboxState> => ipcRenderer.invoke('inbox:trash', ids), // 压缩包的每个分卷进回收站
+    reveal: (kind: 'archive' | 'folder', id: number | string): Promise<void> => ipcRenderer.invoke('inbox:reveal', kind, id)
   },
   games: {
     list: (): Promise<GameCard[]> => ipcRenderer.invoke('games:list'),
     launchOptions: (id: number): Promise<LaunchOptions> => ipcRenderer.invoke('games:launch-options', id),
     setLaunch: (id: number, file: string): Promise<void> => ipcRenderer.invoke('games:set-launch', id, file),
     hints: (id: number): Promise<{ keyword: string; keywords: string[]; workCode: string | null; folderName: string }> => ipcRenderer.invoke('games:hints', id),
-    applyDlsite: (id: number, code: string, tags: string[]): Promise<void> => ipcRenderer.invoke('games:apply-dlsite', id, code, tags),
+    // replaceManual：现在的封面是手选的时候，要不要同时换成 DLsite 封面
+    applyDlsite: (id: number, code: string, tags: string[], replaceManual = false): Promise<void> => ipcRenderer.invoke('games:apply-dlsite', id, code, tags, replaceManual),
     applyManual: (id: number, title: string, cover: Uint8Array): Promise<void> => ipcRenderer.invoke('games:apply-manual', id, title, cover),
     launch: (id: number): Promise<void> => ipcRenderer.invoke('games:launch', id),
-    update: (id: number, patch: { playStatus?: GameCard['playStatus']; useLocaleEmulator?: boolean; title?: string }): Promise<void> =>
+    update: (id: number, patch: { playStatus?: GameCard['playStatus']; useLocaleEmulator?: boolean; title?: string; version?: string }): Promise<void> =>
       ipcRenderer.invoke('games:update', id, patch),
     tag: (id: number, name: string, on: boolean): Promise<void> => ipcRenderer.invoke('games:tag', id, name, on),
     setCover: (id: number, cover: Uint8Array): Promise<void> => ipcRenderer.invoke('games:set-cover', id, cover),
     openFolder: (id: number): Promise<void> => ipcRenderer.invoke('games:open-folder', id),
     uninstall: (id: number): Promise<void> => ipcRenderer.invoke('games:uninstall', id),
-    purge: (id: number): Promise<void> => ipcRenderer.invoke('games:purge', id)
+    purge: (id: number): Promise<void> => ipcRenderer.invoke('games:purge', id),
+    // 详情页“截取当前画面”：主进程先把游戏窗口切到前面，等 3 秒再截
+    capture: (id: number): Promise<'ok' | 'blank' | 'background' | 'none'> => ipcRenderer.invoke('games:capture', id),
+    onChanged: (fn: () => void) => on('games:changed', fn) // 封面在后台换了（截图、在文件夹里找到）
   },
   play: {
     running: (): Promise<Running[]> => ipcRenderer.invoke('play:running'),
@@ -98,9 +107,11 @@ const api = {
   },
   extract: {
     postAction: (): Promise<PostExtractAction | null> => ipcRenderer.invoke('extract:post-action'),
+    chooseTarget: (): Promise<string | null> => ipcRenderer.invoke('extract:choose-target'),
     jobs: (): Promise<Job[]> => ipcRenderer.invoke('extract:jobs'),
     // 返回 false = 用户没选游戏目录，没开始
-    start: (units: { key: string; ids: number[] }[], action?: PostExtractAction, remember?: boolean): Promise<boolean> =>
+    // 单位上的 password / save / target / action 只对这一次有效（双击弹窗）；target 要先用 chooseTarget 选
+    start: (units: { key: string; ids: number[]; password?: string; save?: boolean; target?: string; action?: PostExtractAction }[], action?: PostExtractAction, remember?: boolean): Promise<boolean> =>
       ipcRenderer.invoke('extract:start', units, action, remember),
     retry: (key: string, password?: string, save?: boolean): Promise<void> => ipcRenderer.invoke('extract:retry', key, password, save),
     cancel: (key: string): Promise<void> => ipcRenderer.invoke('extract:cancel', key),

@@ -1,7 +1,7 @@
 {
   "name": "butter-bell",
   "productName": "Butter Bell",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Windows 本地游戏库管理器",
   "license": "MIT",
   "repository": "github:Sakura-1019/butter-bell",
@@ -20,7 +20,8 @@
     "i18next": "^26.7.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "react-i18next": "^17.1.11"
+    "react-i18next": "^17.1.11",
+    "wanakana": "^5.3.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

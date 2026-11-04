@@ -28,7 +28,7 @@ describe('nameHints', () => {
   it('Unity：app.info 的第二行是作品名，exe 名重复时只留一个', () => {
     const paths = ['HoshiyomiSeijo.exe', 'HoshiyomiSeijo_Data/app.info', 'UnityCrashHandler64.exe', 'UnityPlayer.dll']
     const read = reader({ 'HoshiyomiSeijo_Data/app.info': 'KirakiraKeikaku\nHoshiyomiSeijo' })
-    expect(nameHints('PC', paths, read).keywords).toEqual(['HoshiyomiSeijo'])
+    expect(nameHints('PC', paths, read).keywords).toEqual(['HoshiyomiSeijo', 'ほしよみせいじょ', 'ホシヨミセイジョ'])
   })
 
   it('TyranoScript：Config.tjs 里的 System.title', () => {
@@ -51,5 +51,10 @@ describe('nameHints', () => {
     const paths = ['Game/Game.exe', 'Game/www/js/rpg_core.js', 'Game/www/data/System.json']
     const read = reader({ 'Game/www/data/System.json': '{坏的' })
     expect(nameHints('Windows', paths, read)).toEqual({ workCode: null, keywords: [] })
+  })
+
+  it('罗马音的关键词：紧跟着加平假名、片假名两个候补；英文标题不加', () => {
+    expect(nameHints('yorunomori_v1_0_4', [], () => undefined).keywords).toEqual(['yorunomori', 'よるのもり', 'ヨルノモリ'])
+    expect(nameHints('Still Alive Ver.1.25', [], () => undefined).keywords).toEqual(['Still Alive'])
   })
 })

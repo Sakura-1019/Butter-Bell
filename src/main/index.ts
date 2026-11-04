@@ -1,21 +1,27 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeTheme, net, protocol, safeStorage, shell } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, nativeImage, nativeTheme, net, Notification, protocol, safeStorage, shell } from 'electron'
+import { tmpdir } from 'node:os'
 import { existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
-import { mkdir, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
-import { basename, dirname, join } from 'node:path'
+import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises'
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type Database from 'better-sqlite3'
 import { openDb } from './db'
 import icon from '../../build/icon.ico?asset'
-import { ignore, listIgnored, listInbox, mergeBundle, rejectBundle, syncArchives } from './inbox'
+import { ignore, listIgnored, listInbox, mergeBundle, rejectBundle, syncArchives, volumePaths } from './inbox'
 import { addPassword, listPasswords, removePassword, reorderPasswords } from './passwords'
 import { addFolder, ignoreFolders, looseFolders } from './loose'
 import { createExtractor, listFolder } from './extractor'
-import { addTag, applyDlsite, applyManual, listGames, purge, removeTag, uninstall } from './games'
+import { addTag, applyDlsite, applyManual, backfillVersions, listGames, purge, removeTag, setVersion, uninstall } from './games'
+import { createCovers } from './covers'
+import { imageType, isBlankImage, type CoverSource } from '../core/cover'
+import { createCapture, createWindowShooter, type NotifyKey } from './capture'
 import { closeUnfinished, endSession, startSession } from './play'
 import { createRunner } from './runner'
 import { rankLaunchFiles } from '../core/launch'
 import { nameHints } from '../core/name-hints'
 import { searchKeyword } from '../core/names'
+import { extractVersion } from '../core/version'
+import { DEFAULT_SORT, type InboxSort } from '../core/inbox-view'
 import { rankCandidates, type ProductDetail } from '../core/dlsite'
 import { createDlsiteClient } from '../core/dlsite-http'
 import type { PostExtractAction } from './extract'
@@ -33,6 +39,9 @@ if (process.env.PORTABLE_EXECUTABLE_DIR || existsSync(join(appDir, 'portable')))
 if (!app.isPackaged && process.env.BUTTER_BELL_DATA) app.setPath('userData', process.env.BUTTER_BELL_DATA)
 
 // 封面用 cover://c/<文件名> 读本地数据目录里的 covers/，渲染进程碰不到 file://
+// 系统通知（截图封面的提示）显示成 Butter Bell；和 electron-builder.yml 的 appId 一致
+if (process.platform === 'win32') app.setAppUserModelId('io.github.butterbell')
+
 protocol.registerSchemesAsPrivileged([{ scheme: 'cover', privileges: { standard: true, secure: true } }])
 
 // 和 styles.css 里的 --ground / --muted 保持一致
@@ -73,9 +82,19 @@ app.whenReady().then(() => {
   mkdirSync(dataDir, { recursive: true })
   const db = openDb(join(dataDir, 'library.db'))
   closeUnfinished(db) // 上次崩溃或强退时没结束的游玩会话
+  backfillVersions(db) // 0.2.0 以前进库的游戏补上版本号
+  // 手动截图的全局快捷键；false = 关掉
+  const captureHotkey = (): string | false => {
+    const v = getSetting(db, 'capture_hotkey')
+    return v === false ? false : typeof v === 'string' ? v : 'CommandOrControl+Alt+F12' // Ctrl+Shift+F12 常被别的程序占用
+  }
   nativeTheme.themeSource = (getSetting(db, 'theme') as 'system' | 'light' | 'dark' | null) ?? 'system'
   if (getSetting(db, 'privacy_on_start') === true) setSetting(db, 'privacy_mode', true)
   const coversDir = join(dataDir, 'covers')
+  // 封面：手选 > DLsite > 游戏目录里的图片 > RPG Maker 标题画面 > 自动截图，换掉的旧文件都删掉
+  const covers = createCovers(db, dataDir)
+  // 新进库或接回的游戏：在游戏文件夹里找封面（目录里的图片、RPG Maker 标题画面），找不到不影响入库
+  const folderCover = (id: number) => covers.fromFolder(id, gameRow(id).dir).catch(() => undefined)
   protocol.handle('cover', (req) => net.fetch(pathToFileURL(join(coversDir, basename(decodeURIComponent(new URL(req.url).pathname)))).toString()))
 
   // 收件箱。每个调用都返回最新的收件箱，界面直接拿来重画。
@@ -84,7 +103,9 @@ app.whenReady().then(() => {
   // 现成文件夹加进库（和已卸载游戏同名就接回）；启动文件按文件夹内容判断
   const addFolderGame = async (folder: string) => {
     const launch = rankLaunchFiles(await listFolder(join(getSetting(db, 'library_dir') as string, folder)))
-    return addFolder(db, { folderName: folder, launchFile: launch.autoPick, launchCandidates: launch.candidates }, now())
+    const id = addFolder(db, { folderName: folder, launchFile: launch.autoPick, launchCandidates: launch.candidates, version: extractVersion(folder) }, now())
+    await folderCover(id)
+    return id
   }
   const scan = async () => {
     const dir = getSetting(db, 'archive_dir') as string | null
@@ -117,6 +138,22 @@ app.whenReady().then(() => {
 
   ipcMain.handle('inbox:ignored', () => listIgnored(db))
 
+  // 右键菜单：压缩包移入回收站（每个分卷 shell.trashItem，绝不永久删除），界面上已经确认过
+  ipcMain.handle('inbox:trash', async (_e, ids: unknown) => {
+    const dir = getSetting(db, 'archive_dir') as string
+    for (const id of checkIds(ids)) for (const p of volumePaths(db, id)) await shell.trashItem(join(dir, p))
+    return scan()
+  })
+  // 在资源管理器中显示：压缩包选中第一个分卷，现成文件夹选中文件夹本身
+  ipcMain.handle('inbox:reveal', (_e, kind: unknown, id: unknown) => {
+    if (kind === 'folder') {
+      if (typeof id !== 'string' || !loose.includes(id)) throw new Error('没有这个文件夹')
+      return shell.showItemInFolder(join(getSetting(db, 'library_dir') as string, id))
+    }
+    const first = volumePaths(db, checkIds([id])[0])[0]
+    if (first) shell.showItemInFolder(join(getSetting(db, 'archive_dir') as string, first))
+  })
+
   // 解压。进度和结果用事件推给界面
   const cipher = { encrypt: (s: string) => safeStorage.encryptString(s), decrypt: (b: Buffer) => safeStorage.decryptString(b) }
   const send = (channel: string, ...args: unknown[]) => BrowserWindow.getAllWindows().forEach((w) => w.webContents.send(channel, ...args))
@@ -133,14 +170,27 @@ app.whenReady().then(() => {
       exists: existsSync
     },
     onJobs: (jobs) => send('extract:jobs', jobs),
-    onFinished: (gameId) => send('extract:finished', gameId)
+    onFinished: async (gameId) => (await folderCover(gameId), send('extract:finished', gameId))
   })
   ipcMain.handle('extract:post-action', () => getSetting(db, 'post_extract_action'))
   ipcMain.handle('extract:jobs', () => extractor.jobs())
-  // action：第一次解压时弹窗选的；不传就用设置里记住的
+  // 双击弹窗里“解压位置”用系统对话框选；只接受这里选出来的路径，界面传不进别的
+  const targets = new Set<string>()
+  ipcMain.handle('extract:choose-target', async (e) => {
+    const r = await dialog.showOpenDialog(BrowserWindow.fromWebContents(e.sender)!, { properties: ['openDirectory'] })
+    if (r.canceled || !r.filePaths[0]) return null
+    targets.add(r.filePaths[0])
+    return r.filePaths[0]
+  })
+  // action：第一次解压时弹窗选的；不传就用设置里记住的。
+  // 单位上可以带这一次的 password / save / target / action（双击弹窗）
   ipcMain.handle('extract:start', async (e, units: unknown, action: unknown, remember: unknown) => {
-    if (!Array.isArray(units) || !units.every((u) => typeof u?.key === 'string' && Array.isArray(u.ids) && u.ids.every(Number.isInteger)))
-      throw new Error('units 不对')
+    const okUnit = (u: any) =>
+      typeof u?.key === 'string' && Array.isArray(u.ids) && u.ids.every(Number.isInteger) &&
+      (u.password === undefined || typeof u.password === 'string') &&
+      (u.target === undefined || (targets.has(u.target) && existsSync(u.target))) &&
+      (u.action === undefined || ['keep', 'recycle', 'move'].includes(u.action))
+    if (!Array.isArray(units) || !units.every(okUnit)) throw new Error('units 不对')
     const chosen = action ?? getSetting(db, 'post_extract_action')
     if (!['keep', 'recycle', 'move'].includes(chosen as string)) throw new Error('解压后处理不对')
     let lib = getSetting(db, 'library_dir') as string | null
@@ -150,7 +200,7 @@ app.whenReady().then(() => {
       setSetting(db, 'library_dir', (lib = r.filePaths[0]))
     }
     if (action && remember === true) setSetting(db, 'post_extract_action', action)
-    extractor.start(units.map((u) => ({ key: u.key, ids: u.ids })), chosen as PostExtractAction)
+    extractor.start(units.map((u) => ({ key: u.key, ids: u.ids, password: u.password, save: u.save === true, target: u.target, action: u.action })), chosen as PostExtractAction)
     return true
   })
   ipcMain.handle('extract:retry', (_e, key: unknown, password: unknown, save: unknown) => {
@@ -164,7 +214,8 @@ app.whenReady().then(() => {
     if (!Number.isInteger(id)) throw new Error('id 必须是整数')
     const g = db.prepare('SELECT id, folder_name, cover_file FROM games WHERE id = ?').get(id) as { id: number; folder_name: string; cover_file: string | null } | undefined
     if (!g) throw new Error('没有这个游戏')
-    return { ...g, dir: join(getSetting(db, 'library_dir') as string, g.folder_name) }
+    // folder_name 一般相对于游戏目录；双击弹窗解压到游戏目录外的，存的是完整路径（resolve 两种都认）
+    return { ...g, dir: resolve(getSetting(db, 'library_dir') as string, g.folder_name) }
   }
   const launchOptions = async (id: unknown) => {
     const g = gameRow(id)
@@ -180,7 +231,7 @@ app.whenReady().then(() => {
   // 预填的关键词：解压出来的内容里读到的名字优先，读不到就用文件夹名清洗出来的关键词
   ipcMain.handle('games:hints', async (_e, id: unknown) => {
     const g = gameRow(id)
-    const stem = g.folder_name.replace(/ \(\d+\)$/, '')
+    const stem = basename(g.folder_name).replace(/ \(\d+\)$/, '')
     const read = (p: string) => {
       try {
         const file = join(g.dir, p)
@@ -190,7 +241,7 @@ app.whenReady().then(() => {
       }
     }
     const hints = nameHints(stem, existsSync(g.dir) ? await listFolder(g.dir) : [], read)
-    return { ...hints, keyword: hints.keywords[0] ?? searchKeyword(stem), folderName: g.folder_name }
+    return { ...hints, keyword: hints.keywords[0] ?? searchKeyword(stem), folderName: basename(g.folder_name) }
   })
 
   // 用 Chromium 的网络栈：跟随系统代理设置，Node 自带的 fetch 不走代理
@@ -206,34 +257,104 @@ app.whenReady().then(() => {
     return d
   })
 
-  // 新封面换掉旧封面；文件名带时间，界面上不会读到缓存的旧图
-  const saveCover = async (gameId: number, old: string | null, bytes: Uint8Array, ext: string) => {
-    await mkdir(coversDir, { recursive: true })
-    const file = `covers/${gameId}-${Date.now()}.${ext}`
-    await writeFile(join(dataDir, file), bytes)
-    if (old) await rm(join(dataDir, old), { force: true })
-    return file
-  }
-  ipcMain.handle('games:apply-dlsite', async (_e, id: unknown, code: unknown, tags: unknown) => {
+  // replaceManual：现在的封面是用户手选的时候，候选详情里勾了“同时换成 DLsite 封面”
+  ipcMain.handle('games:apply-dlsite', async (_e, id: unknown, code: unknown, tags: unknown, replaceManual: unknown) => {
     const g = gameRow(id)
     const d = details.get(String(code))
     if (!d) throw new Error('先取详情')
     if (!Array.isArray(tags) || !tags.every((t) => typeof t === 'string' && d.genres.includes(t))) throw new Error('标签不对')
-    const res = await net.fetch(d.coverUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } })
-    if (!res.ok) throw new Error(`封面下载失败：${res.status}`)
-    const cover = await saveCover(g.id, g.cover_file, new Uint8Array(await res.arrayBuffer()), d.coverUrl.match(/\.(jpe?g|png|webp)$/i)?.[1] ?? 'jpg')
-    applyDlsite(db, g.id, d, cover, tags)
+    const manual = db.prepare('SELECT cover_source FROM games WHERE id = ?').pluck().get(g.id) === 'manual'
+    let bytes: Uint8Array | null = null
+    if (!manual || replaceManual === true) {
+      const res = await net.fetch(d.coverUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+      if (!res.ok) throw new Error(`封面下载失败：${res.status}`)
+      bytes = new Uint8Array(await res.arrayBuffer())
+    }
+    applyDlsite(db, g.id, d, null, tags)
+    if (bytes) await covers.put(g.id, bytes, 'dlsite')
   })
   ipcMain.handle('games:apply-manual', async (_e, id: unknown, title: unknown, bytes: unknown) => {
     const g = gameRow(id)
     if (typeof title !== 'string' || !title.trim() || !(bytes instanceof Uint8Array)) throw new Error('名称和封面都要有')
-    const ext = imageType(bytes)
-    if (!ext) throw new Error('封面要是 jpg / png / webp 图片')
-    applyManual(db, g.id, title, await saveCover(g.id, g.cover_file, bytes, ext))
+    if (!imageType(bytes)) throw new Error('封面要是 jpg / png / webp 图片')
+    await covers.put(g.id, bytes, 'manual')
+    applyManual(db, g.id, title, db.prepare('SELECT cover_file FROM games WHERE id = ?').pluck().get(g.id) as string)
   })
 
   // 启动和计时
-  const runner = createRunner({ db, openPath: (p) => shell.openPath(p), onChange: (r) => send('play:running', r) })
+  const runner = createRunner({
+    db,
+    openPath: (p) => shell.openPath(p),
+    onChange: (r) => {
+      send('play:running', r)
+      syncHotkey()
+      if (!r.length) shooter.stop() // 截图用的 PowerShell 只在有游戏运行时开着
+    }
+  })
+
+  // 截图封面：没封面的游戏启动后自动截一张；Ctrl+Alt+F12（设置里可改、可关）或详情页按钮手动截
+  const shooter = createWindowShooter(tmpdir(), {
+    decode: (file) => {
+      const im = nativeImage.createFromPath(file)
+      if (im.isEmpty()) return null
+      const { width, height } = im.getSize()
+      return { bgra: im.toBitmap(), width, height }
+    },
+    toJpeg: (file) => {
+      let im = nativeImage.createFromPath(file)
+      if (im.getSize().width > 1280) im = im.resize({ width: 1280, quality: 'best' })
+      return im.toJPEG(90)
+    },
+    isBlank: isBlankImage,
+    remove: (file) => rm(file, { force: true })
+  })
+  const hotkeyLabel = () => {
+    const k = captureHotkey()
+    return k ? k.replace('CommandOrControl', 'Ctrl') : null
+  }
+  // 系统通知的文字（游戏窗口会盖住 Butter Bell，所以不用界面里的提示条）
+  const NOTES: Record<NotifyKey, () => [string, string]> = {
+    'capture.start': () => ['正在截取封面', '请停留在标题画面'],
+    'capture.done': () => ['已截取临时封面', hotkeyLabel() ? `不满意可以按 ${hotkeyLabel()} 重截` : '不满意可以在详情页“截取当前画面”重截'],
+    'capture.failed': () => ['没截到封面', hotkeyLabel() ? `画面一直是黑的或纯色。到想要的画面时按 ${hotkeyLabel()} 手动截取` : '画面一直是黑的或纯色，可以在详情页手动截取'],
+    'capture.manualDone': () => ['已换成截图封面', '以后不会被自动替换'],
+    'capture.manualBlank': () => ['没有换封面', '画面几乎全黑或是纯色'],
+    'capture.manualNoWindow': () => ['没有换封面', '没找到游戏窗口，或者游戏不在最前面'],
+    'capture.hotkeyBusy': () => ['截图快捷键用不了', `${hotkeyLabel()} 被别的程序占用了，可以在设置里换一个`]
+  }
+  const capture = createCapture({
+    running: () => runner.list().map((r) => ({ gameId: r.gameId, pids: runner.pids(r.gameId) })),
+    isRunning: (id) => runner.list().some((r) => r.gameId === id),
+    coverSource: (id) => db.prepare('SELECT cover_source FROM games WHERE id = ?').pluck().get(id) as CoverSource | null,
+    window: shooter.window,
+    activate: shooter.activate,
+    shoot: shooter.shoot,
+    // 手动截的算用户自己选的，直接换；自动截的只在还没封面时放上
+    save: async (id, bytes, src) => void (src === 'manual' ? await covers.put(id, bytes, src) : await covers.offer(id, bytes, src)),
+    notify: (key) => {
+      const [title, body] = NOTES[key]()
+      if (Notification.isSupported()) new Notification({ title, body, icon }).show()
+    },
+    changed: () => send('games:changed'),
+    sleep: (ms) => new Promise((r) => setTimeout(r, ms))
+  })
+  // 全局快捷键只在有游戏运行时注册，不占着别的程序的键
+  let registered: string | null = null
+  let warnedBusy = false
+  function syncHotkey() {
+    const want = runner.list().length ? captureHotkey() : false
+    if (registered && registered !== want) globalShortcut.unregister(registered), (registered = null)
+    if (want && !registered) {
+      if (globalShortcut.register(want, () => void capture.hotkey().catch(() => undefined))) registered = want
+      // 被别的程序占了：这次运行里提醒一次，不默默失效
+      else if (!warnedBusy) (warnedBusy = true), capture.notify('capture.hotkeyBusy')
+    }
+  }
+  ipcMain.handle('games:capture', async (_e, id: unknown) => {
+    const g = gameRow(id)
+    if (!runner.list().some((r) => r.gameId === g.id)) throw new Error('游戏没在运行')
+    return capture.now(g.id)
+  })
   ipcMain.handle('play:running', () => runner.list())
   ipcMain.handle('games:launch', async (_e, id: unknown) => {
     const g = gameRow(id)
@@ -252,12 +373,17 @@ app.whenReady().then(() => {
     const le = row.use_locale_emulator ? (getSetting(db, 'locale_emulator_path') as string | null) : null
     if (row.use_locale_emulator && (!le || !existsSync(le))) throw new Error('没找到 Locale Emulator，去设置里指定 LEProc.exe')
     await runner.launch(g.id, exe, g.dir, le)
+    void capture.auto(g.id).catch(() => undefined) // 没封面的游戏：截一张标题画面当临时封面
   })
 
   // 详情抽屉里能改的东西
   ipcMain.handle('games:update', (_e, id: unknown, patch: unknown) => {
     const g = gameRow(id)
-    const p = patch as { playStatus?: unknown; useLocaleEmulator?: unknown; title?: unknown }
+    const p = patch as { playStatus?: unknown; useLocaleEmulator?: unknown; title?: unknown; version?: unknown }
+    if (p.version !== undefined) {
+      if (typeof p.version !== 'string' || p.version.length > 64) throw new Error('版本号不对')
+      setVersion(db, g.id, p.version) // 手动改过的，以后接回新版本也不再自动覆盖
+    }
     if (p.playStatus !== undefined) {
       if (!['playing', 'wishlist', 'completed'].includes(p.playStatus as string)) throw new Error('状态不对')
       db.prepare('UPDATE games SET play_status = ? WHERE id = ?').run(p.playStatus, g.id)
@@ -276,9 +402,8 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('games:set-cover', async (_e, id: unknown, bytes: unknown) => {
     const g = gameRow(id)
-    const ext = bytes instanceof Uint8Array && imageType(bytes)
-    if (!ext) throw new Error('封面要是 jpg / png / webp 图片')
-    db.prepare('UPDATE games SET cover_file = ? WHERE id = ?').run(await saveCover(g.id, g.cover_file, bytes as Uint8Array, ext), g.id)
+    if (!(bytes instanceof Uint8Array)) throw new Error('封面要是 jpg / png / webp 图片')
+    await covers.put(g.id, bytes, 'manual')
   })
   ipcMain.handle('games:open-folder', async (_e, id: unknown) => {
     const err = await shell.openPath(gameRow(id).dir)
@@ -290,7 +415,9 @@ app.whenReady().then(() => {
     if (runner.list().some((r) => r.gameId === g.id)) throw new Error('游戏还在运行')
     // 已卸载的游戏的 folder_name 可能已经被别的游戏用了，绝不能再去回收它
     if (db.prepare('SELECT uninstalled_at FROM games WHERE id = ?').pluck().get(g.id)) throw new Error('已经卸载了')
-    if (!g.folder_name || /[\\/]|^\.\.?$/.test(g.folder_name)) throw new Error('游戏文件夹不对') // 只会是游戏目录下的一层
+    // 只会是游戏目录下的一层，或者双击弹窗选的位置下面的一层（存完整路径）；绝不回收盘符根
+    const folderOk = isAbsolute(g.folder_name) ? dirname(g.dir) !== g.dir && !/^\.\.?$/.test(basename(g.dir)) : !/[\\/]|^\.\.?$/.test(g.folder_name)
+    if (!g.folder_name || !folderOk) throw new Error('游戏文件夹不对')
     if (existsSync(g.dir)) await shell.trashItem(g.dir)
     uninstall(db, g.id, now())
   })
@@ -320,7 +447,9 @@ app.whenReady().then(() => {
     privacyOnStart: getSetting(db, 'privacy_on_start') === true,
     checkUpdates: getSetting(db, 'check_updates') !== false,
     theme: (getSetting(db, 'theme') as 'system' | 'light' | 'dark' | null) ?? 'system',
-    language: (getSetting(db, 'language') as string | null) ?? 'zh-CN'
+    language: (getSetting(db, 'language') as string | null) ?? 'zh-CN',
+    inboxSort: (getSetting(db, 'inbox_sort') as InboxSort | null) ?? DEFAULT_SORT,
+    captureHotkey: captureHotkey() // false = 关掉
   })
   ipcMain.handle('settings:get', settings)
   ipcMain.handle('settings:set', (_e, key: unknown, value: unknown) => {
@@ -331,12 +460,30 @@ app.whenReady().then(() => {
       check_updates: (v) => typeof v === 'boolean',
       theme: (v) => ['system', 'light', 'dark'].includes(v as string),
       locale_emulator_path: (v) => v === null,
-      language: (v) => typeof v === 'string' && /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(v) // 有哪些语言由界面决定
+      language: (v) => typeof v === 'string' && /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(v), // 有哪些语言由界面决定
+      inbox_sort: (v) => ['modified', 'name', 'size', 'added'].includes((v as InboxSort)?.key) && typeof (v as InboxSort).desc === 'boolean' && Object.keys(v as object).length === 2,
+      capture_hotkey: (v) => v === false || (typeof v === 'string' && /^[A-Za-z0-9+]{1,64}$/.test(v)) // Electron 的快捷键写法，如 CommandOrControl+Alt+F12
     }
     if (!ok[key as string]?.(value)) throw new Error('设置项不对')
+    // 新的截图快捷键先试着注册一下：写法不对或者被别的程序占了，就不存
+    if (key === 'capture_hotkey' && typeof value === 'string') {
+      if (registered) globalShortcut.unregister(registered), (registered = null)
+      let usable = false
+      try {
+        usable = globalShortcut.register(value, () => undefined)
+      } catch {
+        // 写法不对
+      }
+      if (usable) globalShortcut.unregister(value)
+      if (!usable) {
+        syncHotkey()
+        throw new Error('这个快捷键用不了，可能被别的程序占用了')
+      }
+    }
     if (value === null) db.prepare('DELETE FROM settings WHERE key = ?').run(key)
     else setSetting(db, key as string, value)
     if (key === 'theme') nativeTheme.themeSource = value as 'system' | 'light' | 'dark'
+    if (key === 'capture_hotkey') syncHotkey()
     return settings()
   })
   // 选文件夹 / 选 LEProc.exe 用系统对话框，路径不从界面传进来
@@ -374,22 +521,25 @@ app.whenReady().then(() => {
   ipcMain.handle('update:open', () => latest && shell.openExternal(latest.url))
 
   createWindow()
-  app.on('before-quit', () => runner.stop())
+  // 还没封面（或只有截图）的游戏，在文件夹里再找一遍；后台慢慢来，不挡启动
+  ;(async () => {
+    const ids = db.prepare("SELECT id FROM games WHERE uninstalled_at IS NULL AND (cover_source IS NULL OR cover_source = 'screenshot')").pluck().all() as number[]
+    for (const id of ids) await folderCover(id)
+    if (ids.length) send('games:changed')
+  })()
+  app.on('before-quit', () => (runner.stop(), shooter.stop(), globalShortcut.unregisterAll()))
 })
 
-// 看文件头判断图片格式，不信扩展名
-function imageType(b: Uint8Array): string | null {
-  if (b[0] === 0xff && b[1] === 0xd8) return 'jpg'
-  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'png'
-  if (String.fromCharCode(...b.slice(0, 4)) === 'RIFF' && String.fromCharCode(...b.slice(8, 12)) === 'WEBP') return 'webp'
-  return null
-}
-
-// 只读：列出仓库目录根下的文件名和大小，不进子文件夹，不碰文件内容
+// 只读：列出仓库目录根下的文件名、大小和修改时间（= 下载时间），不进子文件夹，不碰文件内容
 async function listFiles(dir: string) {
   const entries = await readdir(dir, { withFileTypes: true })
   const files = entries.filter((e) => e.isFile())
-  return Promise.all(files.map(async (e) => ({ name: e.name, size: (await stat(join(dir, e.name))).size })))
+  return Promise.all(
+    files.map(async (e) => {
+      const s = await stat(join(dir, e.name))
+      return { name: e.name, size: s.size, mtime: s.mtime.toISOString().slice(0, 19) + 'Z' }
+    })
+  )
 }
 
 // 只读：游戏目录下一层的文件夹名

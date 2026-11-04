@@ -4,6 +4,7 @@ import i18n from 'i18next'
 import { LANGUAGES } from './i18n'
 import type { GameCard, InboxState, Job, Running, Settings as SettingsState, UpdateState } from '../../preload'
 import { recentlyPlayed, search, tagCounts, withTag } from '../../core/library'
+import { DEFAULT_SORT } from '../../core/inbox-view'
 import Drawer from './Drawer'
 import FirstRun, { needsFirstRun } from './FirstRun'
 import { Bell, ICONS } from './icons'
@@ -60,6 +61,7 @@ export default function App() {
     window.api.play.running().then(setRunning)
     const offJobs = window.api.extract.onJobs(setJobs)
     const offRunning = window.api.play.onRunning((r) => (setRunning(r), loadGames())) // 游戏退出时时长变了
+    const offChanged = window.api.games.onChanged(() => loadGames()) // 封面在后台换了（截图、在文件夹里找到）
     const offDone = window.api.extract.onFinished(async (id) => {
       window.api.inbox.get().then(setInbox)
       const g = (await loadGames()).find((x) => x.id === id)
@@ -70,6 +72,7 @@ export default function App() {
       window.removeEventListener('focus', scan)
       offJobs()
       offRunning()
+      offChanged()
       offDone()
     }
   }, [loadGames])
@@ -148,10 +151,17 @@ export default function App() {
             {library && games && <span className="count num">{shown.length}</span>}
           </h1>
           <span className="grow" />
-          {library && (
+          {(library || (page === 'inbox' && !!inbox?.dir)) && (
             <label className="search">
               {ICONS.search}
-              <input type="search" value={query} placeholder={t('library.search')} aria-label={t('library.searchLabel')} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setQuery('')} />
+              <input
+                type="search"
+                value={query}
+                placeholder={t(page === 'inbox' ? 'inbox.search' : 'library.search')}
+                aria-label={t(page === 'inbox' ? 'inbox.searchLabel' : 'library.searchLabel')}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Escape' && setQuery('')}
+              />
             </label>
           )}
           {library && (
@@ -189,6 +199,13 @@ export default function App() {
                 state={inbox}
                 onChange={setInbox}
                 jobs={jobs}
+                query={query}
+                onClearQuery={() => setQuery('')}
+                sort={settings?.inboxSort ?? DEFAULT_SORT}
+                onSort={(sort) => {
+                  setSettings((s) => s && { ...s, inboxSort: sort }) // 先换，存设置在后面
+                  window.api.settings.set('inbox_sort', sort).then(setSettings)
+                }}
                 onAdded={async (ids) => {
                   const gs = await loadGames()
                   // 接回的游戏资料都还在，不用再补
