@@ -24,8 +24,6 @@ export const ICONS = {
   play: icon(<path d="M7 4.5v15a.8.8 0 0 0 1.2.7l12-7.5a.8.8 0 0 0 0-1.4l-12-7.5A.8.8 0 0 0 7 4.5z" fill="currentColor" stroke="none" />),
   x: icon(<path d="M18 6 6 18M6 6l12 12" />),
   plus: icon(<path d="M12 5v14M5 12h14" />),
-  sortDesc: icon(<path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4" />), // 倒序：大的 / 新的在前
-  sortAsc: icon(<path d="m3 8 4-4 4 4M7 4v16M11 12h4M11 16h7M11 20h10" />),
   search: icon(<><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>)
 }
 

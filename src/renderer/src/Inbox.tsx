@@ -64,7 +64,7 @@ export default function Inbox({ state, onChange, jobs, onAdded, query, onClearQu
   const [menu, setMenu] = useState<{ x: number; y: number; unit: Unit; targets: Unit[] }>()
   const [trashing, setTrashing] = useState<Unit[]>() // 移入回收站前的确认
   const [confirm, setConfirm] = useState<Unit>() // 双击弹出的确认框
-  const [sortMenu, setSortMenu] = useState<{ x: number; y: number }>() // 排序方式的浮起菜单
+  const [sortMenu, setSortMenu] = useState<{ x: number; y: number }>() // 排序方式的菜单
   const anchor = useRef<string>(undefined) // Shift+点击的起点
   const before = useRef(selected) // 双击的第一下会切换勾选，双击时恢复成这之前的样子
   const jobOf = (u: Unit) => jobs.find((j) => j.key === keyOf(u))
@@ -183,7 +183,7 @@ export default function Inbox({ state, onChange, jobs, onAdded, query, onClearQu
             ? t('inbox.selected', { count: live.length })
             : t('inbox.summary', { count: all.length, size: size(all.reduce((s, u) => s + sizeOf(u), 0)) })}
         </span>
-        {/* 排序：和游戏库工具栏的视图切换同一种分段胶囊。左边是方式（点开浮起的菜单），右边只放正序 / 倒序的图标 */}
+        {/* 排序：和游戏库工具栏的视图切换同一种胶囊。左边是方式（点开的菜单沿用右键菜单的样式），右边是正序 / 倒序图标 */}
         <div className="sortseg" role="group" aria-label={t('inbox.sort.label')}>
           <button
             aria-haspopup="menu"
@@ -202,7 +202,7 @@ export default function Inbox({ state, onChange, jobs, onAdded, query, onClearQu
             aria-label={t('inbox.sort.flipLabel', { now: t(`inbox.sort.${sort.key}${sort.desc ? 'Desc' : 'Asc'}`) })}
             onClick={() => onSort({ key: sort.key, desc: !sort.desc })}
           >
-            {sort.desc ? ICONS.sortDesc : ICONS.sortAsc}
+            <SortIcon desc={sort.desc} />
           </button>
         </div>
         <button className="btn ghost" title={state.dir} onClick={async () => onChange(await window.api.inbox.scan())}>
@@ -228,16 +228,6 @@ export default function Inbox({ state, onChange, jobs, onAdded, query, onClearQu
         <div className="empty-state">
           <p>{t('library.noMatch', { q: query.trim() })}</p>
           <button className="btn" onClick={onClearQuery}>{t('library.clearSearch')}</button>
-        </div>
-      )}
-
-      {view.length > 0 && (
-        // 列标题：12px 灰色，不加底色和横线；正在按它排序的那一列用正文颜色
-        <div className="arch-head" aria-hidden="true">
-          <span className={sort.key === 'name' ? 'h-name cur' : 'h-name'}>{t('inbox.col.name')}</span>
-          <span className={sort.key === 'size' ? 'col size cur' : 'col size'}>{t('inbox.col.size')}</span>
-          <span className={sort.key === 'modified' ? 'col date cur' : 'col date'}>{t('inbox.col.date')}</span>
-          <span className="act" />
         </div>
       )}
 
@@ -495,7 +485,7 @@ function Row({ unit, checked, job, onClick, onDoubleClick, onContextMenu, onIgno
           <div className="fn" title={unit.name}>{unit.name}</div>
           <div className="mt">{t('inbox.folder')}</div>
         </div>
-        {/* 现成文件夹不是下载来的包：没有大小和下载时间，写成灰色的短横 */}
+        {/* 现成文件夹不是下载来的包：没有大小和下载时间，写成灰色短横 */}
         <span className="col size num dash">—</span>
         <span className="col date num dash">—</span>
         <div className="act">
@@ -556,10 +546,10 @@ function Row({ unit, checked, job, onClick, onDoubleClick, onContextMenu, onIgno
           </div>
         )}
       </div>
-      {/* 大小、下载时间各占一列，右对齐、等宽数字，排序时一眼能看出顺序 */}
+      {/* 大小、下载时间在右侧右对齐，按它们排序时一眼能扫下来；“忽略”紧跟在后面 */}
       <span className="col size num">{size(unit.size)}</span>
-      {/* 正在解压的行：进度占掉“下载时间 + 操作”两列，大小列照样对齐 */}
       {job ? (
+        // 解压中 / 失败：进度或“重试 / 先不解压”占掉下载时间和操作两栏，大小照样对齐
         <div className="act wide">
           <JobSide job={job} />
         </div>
@@ -670,5 +660,15 @@ function PostActionDialog({ dir, onCancel, onGo }: { dir: string; onCancel: () =
         <button className="btn primary" onClick={() => onGo(choice, remember)}>{t('post.go')}</button>
       </div>
     </Modal>
+  )
+}
+
+// 正序 / 倒序：上下两支半箭头（斜杠朝外、拉长，免得像数字 1），现在用的方向亮，另一支淡
+function SortIcon({ desc }: { desc: boolean }) {
+  return (
+    <svg className="i sorti" viewBox="0 0 24 24" aria-hidden="true">
+      <path className={desc ? 'off' : undefined} d="M8 20V4L3 9" />
+      <path className={desc ? undefined : 'off'} d="M16 4v16l5-5" />
+    </svg>
   )
 }

@@ -112,11 +112,6 @@
       "today": "今天",
       "yesterday": "昨天",
       "daysAgo": "{{n}} 天前"
-    },
-    "col": {
-      "name": "名称",
-      "size": "大小",
-      "date": "下载时间"
     }
   },
   "common": {
