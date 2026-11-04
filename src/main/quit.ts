@@ -22,11 +22,13 @@ export async function quitGame(pids: number[], mode: 'close' | 'force', d: QuitD
   return 'stuck'
 }
 
-// Windows 的 taskkill：不带 /F 是给窗口发关闭消息（游戏可以弹保存提示），带 /F 是强制结束；/T 连子进程一起。
+// Windows 的 taskkill：不带 /F 是给窗口发关闭消息（游戏可以弹保存提示），带 /F /T 是强制结束整个进程树。
+// 正常关闭不能带 /T：Unity 游戏会带一个没窗口的 UnityCrashHandler 子进程，带 /T 时 taskkill 因为它关不掉
+// 就连主进程也不关（“这个进程的子进程还在运行”）。只给每个跟踪到的进程单独发，子进程会跟着主进程退出。
 // 没有窗口的进程会报“只能强制结束”，这里不当成错误：是否关掉以 alive 为准
 const taskkill = (pids: number[], force: boolean) =>
   new Promise<void>((resolve) =>
-    execFile('taskkill', [...(force ? ['/F'] : []), '/T', ...pids.flatMap((p) => ['/PID', String(p)])], { windowsHide: true }, () => resolve())
+    execFile('taskkill', [...(force ? ['/F', '/T'] : []), ...pids.flatMap((p) => ['/PID', String(p)])], { windowsHide: true }, () => resolve())
   )
 
 export const windowsQuitDeps: QuitDeps = {
