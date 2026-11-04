@@ -1,0 +1,144 @@
+<!doctype html>
+<!-- PROTOTYPE — Butter Bell 艺术字方向对比（一次性页面；选定后再把字转成路径，导出正式 SVG） -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Butter Bell 艺术字</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700&family=Nunito:wght@800;900&family=Fredoka:wght@600&family=Young+Serif&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ground: #212121; --card: #2a2a2a; --raised: #303030; --text: #ececec; --muted: #b4b4b4; --faint: #9b9b9b;
+  --butter: #f2d78e; --ink: #1a1a18;
+  --font: "Inter", "PingFang SC", "Microsoft YaHei UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--text); font: 400 14px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
+main { max-width: 1180px; margin: 0 auto; padding: 48px 28px 80px; }
+h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 6px; }
+.lead { color: var(--muted); margin: 0 0 32px; max-width: 64ch; }
+.opt { background: var(--card); border-radius: 18px; padding: 24px; margin-bottom: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.opt header { grid-column: 1 / -1; }
+.opt h2 { font-size: 16px; font-weight: 600; margin: 0; display: inline; }
+.opt .tag { color: var(--faint); font-size: 12px; margin-left: 8px; }
+.opt p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.stage { border-radius: 14px; padding: 28px 24px; display: grid; place-items: center; min-height: 170px; }
+.stage.dark { background: #171717; }
+.stage.light { background: #ffffff; }
+.stage svg { width: 100%; max-width: 460px; height: auto; display: block; overflow: visible; }
+.uses { grid-column: 1 / -1; display: flex; gap: 14px; flex-wrap: wrap; }
+.side { width: 224px; background: #171717; border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 10px; }
+.side > svg:first-child { width: 22px; height: 22px; }
+.side svg { height: 18px; width: auto; overflow: visible; }
+.lockup { flex: 1; min-width: 300px; background: #171717; border-radius: 12px; padding: 18px 22px; display: flex; align-items: center; gap: 14px; }
+.lockup > svg:first-child { width: 48px !important; height: 48px !important; }
+.lockup svg { height: 34px; width: auto; overflow: visible; }
+small.cap { color: var(--faint); font-size: 11px; display: block; margin-top: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Butter Bell 艺术字</h1>
+  <p class="lead">五个方向。每个都放了深色底和白底两版，下面是放进侧栏（小字号）和跟 logo 并排的样子。“滴落”跟 logo 一个意思：有的字母底下挂着黄油，最后一颗已经掉在半空。字形都是预览用的现成字体，选定后再把字转成路径，精修成正式 SVG。</p>
+  <div id="list"></div>
+</main>
+<script>
+// 内嵌 logo/butter-bell-app-icon.svg，静态预览里相对路径的图片读不到
+const ICON = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#171717"/><g transform="translate(7.7 7.2) scale(.76)"><g fill="#f2d78e"><circle cx="32" cy="10" r="3.2"/><path d="M32 12C21.15 12 14.5 19.88 14.5 30.5C14.5 34.5 14.5 34 14.5 38C14.5 40.5 13.5 42 12 45.2C10.8 46.2 11.4 48 13 48h4.5c1.4 0 2.5 1.1 2.5 2.5v2a3.2 3.2 0 0 0 6.4 0v-1.5c0-1.6 1.2-3 2.8-3h1.4c1.4 0 2.4 1 2.4 2.4a2 2 0 0 0 4 0c0-1.3 1-2.4 2.4-2.4H42.4c1.1 0 1.6.8 1.6 1.6a1.2 1.2 0 0 0 2.4 0c0-.8.5-1.6 1.6-1.6H51C52.6 48 53.2 46.2 52 45.2C50.5 42 49.5 40.5 49.5 38C49.5 34 49.5 34.5 49.5 30.5C49.5 19.88 42.85 12 32 12ZM45.2 52.5c0 0-2.9 3.625-2.9 5.655a2.9 2.9 0 0 0 5.8 0c0-2.03-2.9-5.655-2.9-5.655z"/></g><path d="M21 29c0-4.6 2.6-8.3 6.5-9.6" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/></g></svg>`;
+// drips: [字母序号, 长度, 宽度比例, 是否掉落, 横向微调]；长度/宽度按字号的比例算
+const OPTS = [
+  { id: 'rounded', name: '圆润小写', tag: '推荐', font: 'Nunito', weight: 900, size: 96, track: -0.02, text: 'butter bell',
+    desc: '圆头圆尾的粗体小写，亲切、软乎，和 logo 的圆钟最搭。“bell” 的第一个 l 挂着一颗长滴，最后一个 l 挂一颗短的，下面掉下一滴。',
+    drips: [[9, .22, .13, false, 0], [10, .1, .13, true, 0]] },
+  { id: 'serif', name: '柔和衬线', tag: '温暖', font: 'Young Serif', weight: 400, size: 92, track: -0.01, text: 'Butter Bell',
+    desc: '带圆润衬线的字体，像面包店或手作甜品的招牌，最有温度。只在末尾的 l 下面化开一点，克制。',
+    drips: [[10, .08, .09, true, 0]] },
+  { id: 'chunky', name: '胖胖可爱', tag: '活泼', font: 'Fredoka', weight: 600, size: 100, track: 0, text: 'Butter Bell',
+    desc: '更圆更胖的字，像软糖。好几个字母底下都在化，最热闹、最“同人”。',
+    drips: [[0, .16, .12, false, -.1], [3, .1, .1, false, 0], [7, .2, .12, false, -.1], [10, .12, .11, true, 0]] },
+  { id: 'clean', name: '系统简约', tag: '和界面一致', font: 'Inter', weight: 700, size: 92, track: -0.035, text: 'Butter Bell',
+    desc: '和软件界面同一种字体，只收紧字距，最安静、最像 Apple 的做法。只有末尾 l 下面掉一颗水滴，滴落交给 logo 去表现。',
+    drips: [[10, 0, .1, true, 0]] },
+  { id: 'stack', name: '两行堆叠', tag: '启动页 / README', font: 'Nunito', weight: 900, size: 104, track: -0.03, lines: ['butter', 'bell'],
+    desc: '把两个词叠成两行，方方正正的一块，适合放在启动页、README 顶部这种大图位置。滴落挂在下面一行。',
+    drips: [[1, 2, .22, .13, false, 0], [1, 3, .1, .13, true, 0]] },
+];
+
+const NS = 'http://www.w3.org/2000/svg';
+// 挂在基线上的一颗滴：两侧内凹圆角接出来，末端是圆的
+function hanging(cx, base, w, len) {
+  const r = w / 2, f = w * .45;
+  return `M${cx - r - f} ${base}c${f * .7} 0 ${f} ${f * .4} ${f} ${f}v${len}a${r} ${r} 0 0 0 ${w} 0v-${len}c0-${f * .6} ${f * .3}-${f} ${f}-${f}z`;
+}
+// 掉在半空的一滴：铃口留个小尖，下面一颗上尖下圆的水滴
+function falling(cx, base, w) {
+  const r = w * .42, stub = w * .36;
+  const s = `M${cx - stub * 1.6} ${base}c${stub * .8} 0 ${stub * 1.1} ${stub * .5} ${stub * 1.1} ${stub}a${stub * .5} ${stub * .5} 0 0 0 ${stub} 0c0-${stub * .5} ${stub * .3}-${stub} ${stub * 1.1}-${stub}z`;
+  const top = base + w * 1.05;
+  const d = `M${cx} ${top}c0 0-${r} ${r * 1.25}-${r} ${r * 1.95}a${r} ${r} 0 0 0 ${r * 2} 0c0-${r * .7}-${r}-${r * 1.95}-${r}-${r * 1.95}z`;
+  return s + d;
+}
+
+function build(o, fill) {
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('xmlns', NS);
+  const lines = o.lines || [o.text];
+  const lh = o.size * .92;
+  lines.forEach((t, li) => {
+    const el = document.createElementNS(NS, 'text');
+    el.textContent = t;
+    el.setAttribute('x', 0); el.setAttribute('y', o.size + li * lh);
+    el.setAttribute('font-family', o.font); el.setAttribute('font-weight', o.weight);
+    el.setAttribute('font-size', o.size); el.setAttribute('letter-spacing', `${o.track}em`);
+    el.setAttribute('fill', fill);
+    svg.appendChild(el);
+  });
+  return svg;
+}
+const ctx = document.createElement('canvas').getContext('2d');
+function inkCenter(o, ch) {
+  ctx.font = `${o.weight} ${o.size}px "${o.font}"`;
+  const m = ctx.measureText(ch);
+  return (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2;
+}
+function addDrips(svg, o, fill) {
+  const texts = svg.querySelectorAll('text');
+  let d = '';
+  for (const dr of o.drips) {
+    const [li, idx, len, w, fall, dx] = o.lines ? dr : [0, ...dr];
+    const el = texts[li], ext = el.getExtentOfChar(idx);
+    const base = Number(el.getAttribute('y')) - o.size * .005;
+    const ink = inkCenter(o, el.textContent[idx]);
+    const cx = ext.x + ink + dx * o.size;
+    const ww = w * o.size;
+    d += fall ? falling(cx, base, ww) : hanging(cx, base - .5, ww, len * o.size);
+  }
+  const p = document.createElementNS(NS, 'path');
+  p.setAttribute('d', d); p.setAttribute('fill', fill);
+  svg.appendChild(p);
+  const bb = svg.getBBox();
+  const pad = o.size * .06;
+  svg.setAttribute('viewBox', `${bb.x - pad} ${bb.y - pad} ${bb.width + pad * 2} ${bb.height + pad * 2}`);
+}
+
+// 先把每种字体真正加载好再测量；document.fonts.ready 在字体还没被用到时会直接返回
+Promise.all(OPTS.map(o => document.fonts.load(`${o.weight} 40px "${o.font}"`, o.text || o.lines.join('')))).then(() => {
+  const list = document.getElementById('list');
+  for (const o of OPTS) {
+    const sec = document.createElement('section');
+    sec.className = 'opt';
+    sec.innerHTML = `<header><h2>${o.name}</h2><span class="tag">${o.tag}</span><p>${o.desc}</p></header>
+      <div class="stage dark"></div><div class="stage light"></div>
+      <div class="uses"><div><div class="side">${ICON}<span class="w"></span></div><small class="cap">侧栏（18 像素高）</small></div>
+      <div class="lockup">${ICON}<span class="w"></span></div></div>`;
+    list.appendChild(sec);
+    const put = (host, fill) => { const s = build(o, fill); host.appendChild(s); addDrips(s, o, fill); };
+    put(sec.querySelector('.stage.dark'), 'var(--butter)');
+    put(sec.querySelector('.stage.light'), 'var(--ink)');
+    sec.querySelectorAll('.w').forEach(h => put(h, 'var(--butter)'));
+  }
+});
+</script>
+</body>
+</html>
