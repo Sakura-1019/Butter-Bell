@@ -60,6 +60,25 @@ describe('parseProduct', () => {
     expect(p.series).toBe('姫シリーズ')
   })
 
+  it('language_editions 是对象（键是数字字符串）时也能读出全部语言版本', () => {
+    const p = parseProduct(fixture('dlsite-product-editions-object.json'))!
+    expect(p.languageEditions).toEqual([
+      { code: 'RJ01099001', lang: 'JPN', label: '日本語' },
+      { code: 'RJ01099002', lang: 'ENG', label: '英語' },
+      { code: 'RJ01099003', lang: 'CHI_HANS', label: '簡体中文' }
+    ])
+    expect(p.genres).toEqual(['ドット', '冒険'])
+  })
+
+  it('language_editions 和 genres 是 null 或缺失时得到空数组', () => {
+    const base = { workno: 'RJ01099009', work_name: 'x', maker_name: 'y' }
+    for (const extra of [{ language_editions: null, genres: null }, {}]) {
+      const p = parseProduct(JSON.stringify([{ ...base, ...extra }]))!
+      expect(p.languageEditions).toEqual([])
+      expect(p.genres).toEqual([])
+    }
+  })
+
   it('查不到的 RJ 号（返回 []）得到 null', () => {
     expect(parseProduct(fixture('dlsite-product-notfound.json'))).toBeNull()
   })

@@ -45,11 +45,16 @@ export function parseProduct(json: string): ProductDetail | null {
     circle: p.maker_name,
     releaseDate: String(p.regist_date ?? '').slice(0, 10),
     description: p.intro_s ?? '',
-    genres: (p.genres ?? []).map((g: { name: string }) => g.name),
+    genres: list(p.genres).map((g: { name: string }) => g.name),
     coverUrl: absolute(p.image_main?.url ?? ''),
     series: p.series_name || null,
-    languageEditions: (p.language_editions ?? []).map((e: any) => ({ code: e.workno, lang: e.lang, label: e.label }))
+    languageEditions: list(p.language_editions).map((e: any) => ({ code: e.workno, lang: e.lang, label: e.label }))
   }
+}
+
+// DLsite 的列表字段有时是数组，有时是 {"3": {...}, "4": {...}} 这样的对象，也可能是 null
+function list(v: unknown): any[] {
+  return Array.isArray(v) ? v : v && typeof v === 'object' ? Object.values(v) : []
 }
 
 // 和关键词越像越靠前：完全一样 > 名字里包含关键词 > 其他；同档保持 DLsite 原来的顺序
