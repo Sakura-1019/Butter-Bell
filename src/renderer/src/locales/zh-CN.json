@@ -69,7 +69,7 @@
     "searchLabel": "搜索待解压的文件名",
     "sort": {
       "label": "排序",
-      "flip": "切换正序 / 倒序",
+      "flip": "点击切换正序 / 倒序",
       "modified": "下载时间",
       "name": "名称",
       "size": "大小",
@@ -185,7 +185,8 @@
     "yesterday": "昨天 {{hm}}",
     "daysAgo": "{{n}} 天前",
     "date": "{{m}}月{{d}}日",
-    "none": "—"
+    "none": "—",
+    "dateYear": "{{y}}年{{m}}月{{d}}日"
   },
   "drawer": {
     "close": "关闭详情",

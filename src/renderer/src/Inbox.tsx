@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { InboxEntry, InboxState, Job, PostExtractAction } from '../../preload'
 import { filterInbox, sortInbox, type InboxSort, type InboxSortKey } from '../../core/inbox-view'
 import { ICONS } from './icons'
@@ -27,6 +28,13 @@ export function useSize() {
   }
 }
 
+// 卡片上的下载时间（文件修改时间）：今年的只写月日，往年的带上年份
+const downloaded = (t: TFunction, iso: string) => {
+  const d = new Date(iso)
+  const md = { m: d.getMonth() + 1, d: d.getDate() }
+  return d.getFullYear() === new Date().getFullYear() ? t('time.date', md) : t('time.dateYear', { y: d.getFullYear(), ...md })
+}
+
 // 点到行里的按钮、输入框、链接时不算点卡片（复选框除外，它就是用来勾选的）
 const onControl = (e: MouseEvent) => !!(e.target as Element).closest('button:not(.check), input, select, a, label, .pwrow')
 
@@ -51,6 +59,7 @@ export default function Inbox({ state, onChange, jobs, onAdded, query, onClearQu
   const [menu, setMenu] = useState<{ x: number; y: number; unit: Unit; targets: Unit[] }>()
   const [trashing, setTrashing] = useState<Unit[]>() // 移入回收站前的确认
   const [confirm, setConfirm] = useState<Unit>() // 双击弹出的确认框
+  const [sortMenu, setSortMenu] = useState<{ x: number; y: number }>() // 排序方式的下拉菜单
   const anchor = useRef<string>(undefined) // Shift+点击的起点
   const before = useRef(selected) // 双击的第一下会切换勾选，双击时恢复成这之前的样子
   const jobOf = (u: Unit) => jobs.find((j) => j.key === keyOf(u))
@@ -169,17 +178,45 @@ export default function Inbox({ state, onChange, jobs, onAdded, query, onClearQu
             ? t('inbox.selected', { count: live.length })
             : t('inbox.summary', { count: all.length, size: size(all.reduce((s, u) => s + sizeOf(u), 0)) })}
         </span>
-        <label className="sortctl">
-          <span className="muted small">{t('inbox.sort.label')}</span>
-          <select className="input select" value={sort.key} aria-label={t('inbox.sort.label')} onChange={(e) => onSort({ key: e.target.value as InboxSortKey, desc: e.target.value !== 'name' })}>
-            {SORT_KEYS.map((k) => (
-              <option key={k} value={k}>{t(`inbox.sort.${k}`)}</option>
-            ))}
-          </select>
-          <button className="btn ghost dir" title={t('inbox.sort.flip')} onClick={() => onSort({ key: sort.key, desc: !sort.desc })}>
-            {t(`inbox.sort.${sort.key}${sort.desc ? 'Desc' : 'Asc'}`)}
+        <div className="sortctl">
+          <button
+            className="btn ghost"
+            aria-haspopup="menu"
+            aria-expanded={!!sortMenu}
+            title={t('inbox.sort.label')}
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect()
+              setSortMenu(sortMenu ? undefined : { x: r.left, y: r.bottom + 6 })
+            }}
+          >
+            {t(`inbox.sort.${sort.key}`)}
+            {ICONS.chevDown}
           </button>
-        </label>
+          {/* 正序 / 倒序只用图标，悬停时说明现在是哪种 */}
+          <button
+            className="iconbtn plain"
+            title={`${t(`inbox.sort.${sort.key}${sort.desc ? 'Desc' : 'Asc'}`)} · ${t('inbox.sort.flip')}`}
+            aria-label={t(`inbox.sort.${sort.key}${sort.desc ? 'Desc' : 'Asc'}`)}
+            onClick={() => onSort({ key: sort.key, desc: !sort.desc })}
+          >
+            {sort.desc ? ICONS.sortDesc : ICONS.sortAsc}
+          </button>
+        </div>
+        {sortMenu && (
+          <ContextMenu x={sortMenu.x} y={sortMenu.y} onClose={() => setSortMenu(undefined)}>
+            {SORT_KEYS.map((k) => (
+              <button
+                key={k}
+                role="menuitemradio"
+                aria-checked={sort.key === k}
+                onClick={() => (setSortMenu(undefined), sort.key !== k && onSort({ key: k, desc: k !== 'name' }))}
+              >
+                {t(`inbox.sort.${k}`)}
+                {sort.key === k && ICONS.check}
+              </button>
+            ))}
+          </ContextMenu>
+        )}
         <button className="btn ghost" title={state.dir} onClick={async () => onChange(await window.api.inbox.scan())}>
           {ICONS.refresh}
           {t('inbox.rescan')}
@@ -479,6 +516,8 @@ function Row({ unit, checked, job, onClick, onDoubleClick, onContextMenu, onIgno
           )}
           <span className="sep">·</span>
           <span className="num">{size(unit.size)}</span>
+          <span className="sep">·</span>
+          <span className="num" title={t('inbox.sort.modified')}>{downloaded(t, isGroup ? unit.members.map((m) => m.modifiedAt).sort().at(-1)! : unit.modifiedAt)}</span>
           {!isGroup && unit.reattach && (
             <>
               <span className="sep">·</span>
