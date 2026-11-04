@@ -28,9 +28,14 @@ export function useSize() {
   }
 }
 
-// 卡片上的下载时间（文件修改时间）：今年的只写月日，往年的带上年份
-const downloaded = (t: TFunction, iso: string) => {
+// 下载时间（文件修改时间）：近的用文字（今天、昨天、3 天前），再早写月日，往年的带年份
+function downloaded(t: TFunction, iso: string) {
   const d = new Date(iso)
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const days = Math.round((day(new Date()) - day(d)) / 86400000)
+  if (days <= 0) return t('inbox.when.today')
+  if (days === 1) return t('inbox.when.yesterday')
+  if (days < 7) return t('inbox.when.daysAgo', { n: days })
   const md = { m: d.getMonth() + 1, d: d.getDate() }
   return d.getFullYear() === new Date().getFullYear() ? t('time.date', md) : t('time.dateYear', { y: d.getFullYear(), ...md })
 }
@@ -59,7 +64,7 @@ export default function Inbox({ state, onChange, jobs, onAdded, query, onClearQu
   const [menu, setMenu] = useState<{ x: number; y: number; unit: Unit; targets: Unit[] }>()
   const [trashing, setTrashing] = useState<Unit[]>() // 移入回收站前的确认
   const [confirm, setConfirm] = useState<Unit>() // 双击弹出的确认框
-  const [sortMenu, setSortMenu] = useState<{ x: number; y: number }>() // 排序方式的下拉菜单
+  const [sortMenu, setSortMenu] = useState<{ x: number; y: number }>() // 排序方式的浮起菜单
   const anchor = useRef<string>(undefined) // Shift+点击的起点
   const before = useRef(selected) // 双击的第一下会切换勾选，双击时恢复成这之前的样子
   const jobOf = (u: Unit) => jobs.find((j) => j.key === keyOf(u))
@@ -178,45 +183,28 @@ export default function Inbox({ state, onChange, jobs, onAdded, query, onClearQu
             ? t('inbox.selected', { count: live.length })
             : t('inbox.summary', { count: all.length, size: size(all.reduce((s, u) => s + sizeOf(u), 0)) })}
         </span>
-        <div className="sortctl">
+        {/* 排序：和游戏库工具栏的视图切换同一种分段胶囊。左边是方式（点开浮起的菜单），右边只放正序 / 倒序的图标 */}
+        <div className="sortseg" role="group" aria-label={t('inbox.sort.label')}>
           <button
-            className="btn ghost"
             aria-haspopup="menu"
             aria-expanded={!!sortMenu}
-            title={t('inbox.sort.label')}
             onClick={(e) => {
               const r = e.currentTarget.getBoundingClientRect()
-              setSortMenu(sortMenu ? undefined : { x: r.left, y: r.bottom + 6 })
+              setSortMenu(sortMenu ? undefined : { x: r.left - 3, y: r.bottom + 6 })
             }}
           >
             {t(`inbox.sort.${sort.key}`)}
             {ICONS.chevDown}
           </button>
-          {/* 正序 / 倒序只用图标，悬停时说明现在是哪种 */}
           <button
-            className="iconbtn plain"
-            title={`${t(`inbox.sort.${sort.key}${sort.desc ? 'Desc' : 'Asc'}`)} · ${t('inbox.sort.flip')}`}
-            aria-label={t(`inbox.sort.${sort.key}${sort.desc ? 'Desc' : 'Asc'}`)}
+            className="dir"
+            title={t(`inbox.sort.${sort.key}${sort.desc ? 'Desc' : 'Asc'}`)}
+            aria-label={t('inbox.sort.flipLabel', { now: t(`inbox.sort.${sort.key}${sort.desc ? 'Desc' : 'Asc'}`) })}
             onClick={() => onSort({ key: sort.key, desc: !sort.desc })}
           >
             {sort.desc ? ICONS.sortDesc : ICONS.sortAsc}
           </button>
         </div>
-        {sortMenu && (
-          <ContextMenu x={sortMenu.x} y={sortMenu.y} onClose={() => setSortMenu(undefined)}>
-            {SORT_KEYS.map((k) => (
-              <button
-                key={k}
-                role="menuitemradio"
-                aria-checked={sort.key === k}
-                onClick={() => (setSortMenu(undefined), sort.key !== k && onSort({ key: k, desc: k !== 'name' }))}
-              >
-                {t(`inbox.sort.${k}`)}
-                {sort.key === k && ICONS.check}
-              </button>
-            ))}
-          </ContextMenu>
-        )}
         <button className="btn ghost" title={state.dir} onClick={async () => onChange(await window.api.inbox.scan())}>
           {ICONS.refresh}
           {t('inbox.rescan')}
@@ -240,6 +228,16 @@ export default function Inbox({ state, onChange, jobs, onAdded, query, onClearQu
         <div className="empty-state">
           <p>{t('library.noMatch', { q: query.trim() })}</p>
           <button className="btn" onClick={onClearQuery}>{t('library.clearSearch')}</button>
+        </div>
+      )}
+
+      {view.length > 0 && (
+        // 列标题：12px 灰色，不加底色和横线；正在按它排序的那一列用正文颜色
+        <div className="arch-head" aria-hidden="true">
+          <span className={sort.key === 'name' ? 'h-name cur' : 'h-name'}>{t('inbox.col.name')}</span>
+          <span className={sort.key === 'size' ? 'col size cur' : 'col size'}>{t('inbox.col.size')}</span>
+          <span className={sort.key === 'modified' ? 'col date cur' : 'col date'}>{t('inbox.col.date')}</span>
+          <span className="act" />
         </div>
       )}
 
@@ -270,6 +268,17 @@ export default function Inbox({ state, onChange, jobs, onAdded, query, onClearQu
         ) : (
           row(e)
         )
+      )}
+
+      {sortMenu && (
+        <ContextMenu x={sortMenu.x} y={sortMenu.y} onClose={() => setSortMenu(undefined)}>
+          {SORT_KEYS.map((k) => (
+            <button key={k} role="menuitemradio" aria-checked={sort.key === k} onClick={() => (setSortMenu(undefined), sort.key !== k && onSort({ key: k, desc: k !== 'name' }))}>
+              {t(`inbox.sort.${k}`)}
+              {sort.key === k && ICONS.check}
+            </button>
+          ))}
+        </ContextMenu>
       )}
 
       {menu && (
@@ -486,7 +495,12 @@ function Row({ unit, checked, job, onClick, onDoubleClick, onContextMenu, onIgno
           <div className="fn" title={unit.name}>{unit.name}</div>
           <div className="mt">{t('inbox.folder')}</div>
         </div>
-        <button className="linkbtn side-act" onClick={onIgnore}>{t('inbox.ignore')}</button>
+        {/* 现成文件夹不是下载来的包：没有大小和下载时间，写成灰色的短横 */}
+        <span className="col size num dash">—</span>
+        <span className="col date num dash">—</span>
+        <div className="act">
+          <button className="linkbtn side-act" onClick={onIgnore}>{t('inbox.ignore')}</button>
+        </div>
       </div>
     )
   const isGroup = unit.kind !== 'archive'
@@ -494,6 +508,7 @@ function Row({ unit, checked, job, onClick, onDoubleClick, onContextMenu, onIgno
   const expandable = isGroup || unit.volumes.length > 1
   const format = isGroup ? [...new Set(unit.members.map((m) => m.format))].join(' / ') : unit.format
   const missing = isGroup ? [] : unit.missing
+  const modified = isGroup ? unit.members.map((m) => m.modifiedAt).sort().at(-1)! : unit.modifiedAt // 同套取最新的成员
 
   return (
     <div className={cls(job?.state === 'password' || job?.state === 'failed' ? 'arch err' : 'arch')} {...handlers}>
@@ -514,10 +529,6 @@ function Row({ unit, checked, job, onClick, onDoubleClick, onContextMenu, onIgno
               </button>
             </>
           )}
-          <span className="sep">·</span>
-          <span className="num">{size(unit.size)}</span>
-          <span className="sep">·</span>
-          <span className="num" title={t('inbox.sort.modified')}>{downloaded(t, isGroup ? unit.members.map((m) => m.modifiedAt).sort().at(-1)! : unit.modifiedAt)}</span>
           {!isGroup && unit.reattach && (
             <>
               <span className="sep">·</span>
@@ -545,12 +556,22 @@ function Row({ unit, checked, job, onClick, onDoubleClick, onContextMenu, onIgno
           </div>
         )}
       </div>
+      {/* 大小、下载时间各占一列，右对齐、等宽数字，排序时一眼能看出顺序 */}
+      <span className="col size num">{size(unit.size)}</span>
+      {/* 正在解压的行：进度占掉“下载时间 + 操作”两列，大小列照样对齐 */}
       {job ? (
-        <JobSide job={job} />
+        <div className="act wide">
+          <JobSide job={job} />
+        </div>
       ) : (
-        <button className="linkbtn side-act" onClick={onIgnore}>
-          {t('inbox.ignore')}
-        </button>
+        <>
+          <span className="col date num" title={new Date(modified).toLocaleString()}>{downloaded(t, modified)}</span>
+          <div className="act">
+            <button className="linkbtn side-act" onClick={onIgnore}>
+              {t('inbox.ignore')}
+            </button>
+          </div>
+        </>
       )}
     </div>
   )

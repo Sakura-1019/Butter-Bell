@@ -424,11 +424,28 @@ table.list { width: 100%; border-collapse: collapse; }
 .xform .seg button { padding: 0 12px; }
 .pathrow { display: flex; align-items: center; gap: 4px; min-height: 34px; padding-left: 10px; border-radius: 8px; background: var(--raised); }
 .pathrow .path { flex: 1; min-width: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* 排序：胶囊按钮 + 下拉菜单（和右键菜单同一套样式），正倒序只用图标 */
-.sortctl { display: flex; align-items: center; gap: 2px; }
-.sortctl .btn svg.i { width: 14px; height: 14px; color: var(--faint); }
-.sortctl .iconbtn.plain svg.i { width: 18px; height: 18px; }
-.ctxmenu button[role="menuitemradio"] { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.ctxmenu button[aria-checked="true"] { font-weight: 500; }
-.ctxmenu button svg.i { width: 14px; height: 14px; color: var(--muted); }
-.arch .side-act { padding: 5px 12px; border-radius: var(--radius-control); }
+
+/* ---------- 待解压：排序、列、操作列（0.2.0，按 design-taste-frontend 的 true-black-flat 列表规则） ----------
+   列宽：大小 88 + 下载时间 96 + 操作 72，列间距 14；解压中的行，进度占下载时间 + 操作 = 96 + 14 + 72 = 182。数字列右对齐、等宽数字；没有值的写灰色短横。 */
+.sortseg { display: inline-flex; align-items: center; height: 34px; padding: 3px; border-radius: var(--radius-control); background: var(--raised); }
+.sortseg button { height: 28px; padding: 0 10px 0 14px; border-radius: var(--radius-control); display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--text); transition: background .12s; }
+.sortseg button:hover, .sortseg button[aria-expanded="true"] { background: var(--active); }
+.sortseg button svg.i { width: 14px; height: 14px; color: var(--muted); }
+.sortseg .dir { width: 34px; padding: 0; justify-content: center; }
+.sortseg .dir svg.i { width: 17px; height: 17px; color: var(--text); }
+.ctxmenu button[role="menuitemradio"] { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.ctxmenu button[role="menuitemradio"] svg.i { width: 14px; height: 14px; color: var(--muted); }
+.arch .col, .arch-head .col { flex: none; text-align: right; font-size: 13px; }
+.arch .col { color: var(--muted); }
+.arch .col.size, .arch-head .col.size { width: 88px; }
+.arch .col.date, .arch-head .col.date { width: 96px; }
+.arch .col.dash { color: var(--faint); }
+.arch .act, .arch-head .act { flex: none; width: 72px; display: flex; justify-content: flex-end; }
+.arch .act.wide { width: 182px; }
+.arch .act .side { min-width: 0; width: 100%; }
+.arch .act .side-act { margin-right: -12px; padding: 5px 12px; border-radius: var(--radius-control); }
+.arch-head { display: flex; align-items: center; gap: 14px; height: 36px; padding: 0 28px 0 94px; font-size: 12px; color: var(--muted); }
+.arch-head .h-name { flex: 1; min-width: 0; }
+.arch-head .cur { color: var(--text); }
+.arch .act .side-line { justify-content: flex-end; }
+.arch .act .side .linkbtn:last-child { margin-right: -8px; } /* 文字和“忽略”落在同一条右边线上 */
