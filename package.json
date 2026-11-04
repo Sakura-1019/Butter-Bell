@@ -4,7 +4,7 @@
   "version": "0.2.0",
   "description": "Windows 本地游戏库管理器",
   "license": "MIT",
-  "repository": "github:Sakura-1019/butter-bell",
+  "repository": "github:Sakura-1019/Butter-Bell",
   "private": true,
   "main": "out/main/index.js",
   "scripts": {
