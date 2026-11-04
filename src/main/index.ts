@@ -15,6 +15,7 @@ import { addTag, applyDlsite, applyManual, backfillVersions, listGames, purge, r
 import { createCovers } from './covers'
 import { imageType, isBlankImage, type CoverSource } from '../core/cover'
 import { createCapture, createWindowShooter, type NotifyKey } from './capture'
+import { quitGame, windowsQuitDeps } from './quit'
 import { closeUnfinished, endSession, startSession } from './play'
 import { createRunner } from './runner'
 import { rankLaunchFiles } from '../core/launch'
@@ -350,6 +351,12 @@ app.whenReady().then(() => {
       else if (!warnedBusy) (warnedBusy = true), capture.notify('capture.hotkeyBusy')
     }
   }
+  // 详情页的“退出游戏”：force = false 先正常关闭（5 秒没关掉返回 stuck，界面再问要不要强制结束）。
+  // 关掉以后 runner 下一次看进程时照常结束游玩会话、记下时长
+  ipcMain.handle('games:quit', async (_e, id: unknown, force: unknown) => {
+    const g = gameRow(id)
+    return quitGame(runner.pids(g.id), force === true ? 'force' : 'close', windowsQuitDeps)
+  })
   ipcMain.handle('games:capture', async (_e, id: unknown) => {
     const g = gameRow(id)
     if (!runner.list().some((r) => r.gameId === g.id)) throw new Error('游戏没在运行')

@@ -78,6 +78,8 @@ const api = {
     purge: (id: number): Promise<void> => ipcRenderer.invoke('games:purge', id),
     // 详情页“截取当前画面”：主进程先把游戏窗口切到前面，等 3 秒再截
     capture: (id: number): Promise<'ok' | 'blank' | 'background' | 'none'> => ipcRenderer.invoke('games:capture', id),
+    // 退出游戏：先正常关闭；force = true 强制结束整个进程树（会丢没保存的进度）
+    quit: (id: number, force = false): Promise<'closed' | 'stuck' | 'none'> => ipcRenderer.invoke('games:quit', id, force),
     onChanged: (fn: () => void) => on('games:changed', fn) // 封面在后台换了（截图、在文件夹里找到）
   },
   play: {

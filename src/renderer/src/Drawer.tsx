@@ -42,6 +42,20 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
   const [renaming, setRenaming] = useState(false)
   const [editingVersion, setEditingVersion] = useState(false)
   const [countdown, setCountdown] = useState(0) // “截取当前画面”的倒数
+  // 退出游戏：closing = 已经发了关闭，等游戏退出（runner 看到进程没了，running 变空才回到 idle）；stuck = 5 秒没关掉
+  const [quitState, setQuitState] = useState<'idle' | 'closing' | 'stuck'>('idle')
+  useEffect(() => {
+    if (!running) setQuitState('idle')
+  }, [running])
+  const quit = async (force: boolean) => {
+    setQuitState('closing')
+    try {
+      if ((await window.api.games.quit(g.id, force)) === 'stuck') setQuitState('stuck')
+    } catch (e) {
+      setQuitState('idle')
+      onError(errorText(e))
+    }
+  }
   const [busy, setBusy] = useState(false)
   const coverInput = useRef<HTMLInputElement>(null)
 
@@ -146,6 +160,24 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
       {g.uninstalled && <div className="note"><strong>{t('drawer.goneTitle')}</strong>{t('drawer.goneHint')}</div>}
 
       {launch && <div className="d-launch">{launch}</div>}
+      {/* 退出游戏：只在运行时出现。先正常关闭；5 秒没关掉才问要不要强制结束 */}
+      {running && !html && (
+        quitState === 'stuck' ? (
+          <div className="confirm">
+            <p>{t('drawer.quitStuck')}</p>
+            <div className="acts">
+              <button className="btn ghost" onClick={() => setQuitState('idle')}>{t('common.cancel')}</button>
+              <button className="btn danger solid" onClick={() => quit(true)}>{t('drawer.forceQuit')}</button>
+            </div>
+          </div>
+        ) : (
+          <div className="d-quit">
+            <button className="linkbtn danger-text" disabled={quitState === 'closing'} onClick={() => quit(false)}>
+              {t(quitState === 'closing' ? 'drawer.quitting' : 'drawer.quit')}
+            </button>
+          </div>
+        )
+      )}
       {launch && html && <p className="muted small d-hint">{t('drawer.htmlHint')}</p>}
       <div className="d-stats">
         <div><div className="k">{t('drawer.playtime')}</div><div className="v num" title={html ? t('drawer.htmlHint') : undefined}>{html ? t('drawer.noTiming') : playtime(t, g.playSeconds + runSeconds)}</div></div>

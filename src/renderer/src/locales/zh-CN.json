@@ -241,7 +241,11 @@
     "captureBlank": "画面几乎全黑或是纯色，没有换封面",
     "captureBackground": "截图时游戏窗口不在最前面，没有换封面",
     "captureNone": "没找到游戏窗口，没有换封面",
-    "needsTitleCovered": "封面是自动找的，名称还没有补"
+    "needsTitleCovered": "封面是自动找的，名称还没有补",
+    "quit": "退出游戏",
+    "quitting": "正在关闭游戏…",
+    "quitStuck": "游戏 5 秒内没有关闭，可能卡住了，或者正在等你确认保存。强制结束会丢失没保存的进度。",
+    "forceQuit": "强制结束"
   },
   "settings": {
     "dirs": "目录",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterInbox, sortInbox, type ViewArchive, type ViewEntry } from './inbox-view'
+import { downloadedLabel, filterInbox, sortInbox, type ViewArchive, type ViewEntry } from './inbox-view'
 
 const a = (name: string, size: number, modifiedAt: string, firstSeenAt: string, volumes = [`${name}.rar`]): ViewArchive => ({
   kind: 'archive',
@@ -63,5 +63,20 @@ describe('filterInbox', () => {
   })
   it('空的搜索词不筛', () => {
     expect(filterInbox(all, '  ')).toBe(all)
+  })
+})
+
+describe('downloadedLabel', () => {
+  const now = new Date(2026, 10, 4, 21, 0) // 2026-11-04 晚上
+  const at = (y: number, m: number, d: number, h = 12) => new Date(y, m - 1, d, h).toISOString()
+  it('最近的用文字：今天、昨天、几天前', () => {
+    expect(downloadedLabel(at(2026, 11, 4, 1), now)).toEqual({ kind: 'today' })
+    expect(downloadedLabel(at(2026, 11, 3, 23), now)).toEqual({ kind: 'yesterday' })
+    expect(downloadedLabel(at(2026, 10, 29), now)).toEqual({ kind: 'daysAgo', n: 6 })
+  })
+  it('今年再早的写 mm/dd，往年的写 yyyy/mm/dd，月日都补零', () => {
+    expect(downloadedLabel(at(2026, 10, 28), now)).toEqual({ kind: 'date', text: '10/28' })
+    expect(downloadedLabel(at(2026, 3, 5), now)).toEqual({ kind: 'date', text: '03/05' })
+    expect(downloadedLabel(at(2025, 11, 27), now)).toEqual({ kind: 'date', text: '2025/11/27' })
   })
 })

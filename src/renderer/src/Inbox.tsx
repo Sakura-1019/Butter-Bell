@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import type { InboxEntry, InboxState, Job, PostExtractAction } from '../../preload'
-import { filterInbox, sortInbox, type InboxSort, type InboxSortKey } from '../../core/inbox-view'
+import { downloadedLabel, filterInbox, sortInbox, type InboxSort, type InboxSortKey } from '../../core/inbox-view'
 import { ICONS } from './icons'
 import Modal from './Modal'
 
@@ -28,16 +28,10 @@ export function useSize() {
   }
 }
 
-// 下载时间（文件修改时间）：近的用文字（今天、昨天、3 天前），再早写月日，往年的带年份
+// 下载时间（文件修改时间）：近的用文字，今年再早写 mm/dd，往年写 yyyy/mm/dd（见 core/inbox-view.ts）
 function downloaded(t: TFunction, iso: string) {
-  const d = new Date(iso)
-  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
-  const days = Math.round((day(new Date()) - day(d)) / 86400000)
-  if (days <= 0) return t('inbox.when.today')
-  if (days === 1) return t('inbox.when.yesterday')
-  if (days < 7) return t('inbox.when.daysAgo', { n: days })
-  const md = { m: d.getMonth() + 1, d: d.getDate() }
-  return d.getFullYear() === new Date().getFullYear() ? t('time.date', md) : t('time.dateYear', { y: d.getFullYear(), ...md })
+  const l = downloadedLabel(iso)
+  return l.kind === 'date' ? l.text : t(`inbox.when.${l.kind}`, l.kind === 'daysAgo' ? { n: l.n } : undefined)
 }
 
 // 点到行里的按钮、输入框、链接时不算点卡片（复选框除外，它就是用来勾选的）
@@ -188,6 +182,8 @@ export default function Inbox({ state, onChange, jobs, onAdded, query, onClearQu
           <button
             aria-haspopup="menu"
             aria-expanded={!!sortMenu}
+            // 菜单开着时按下这个按钮：不让菜单的“点外面就关”先关掉它，再由下面的 onClick 重新打开；交给 onClick 收起
+            onMouseDown={(e) => sortMenu && e.stopPropagation()}
             onClick={(e) => {
               const r = e.currentTarget.getBoundingClientRect()
               setSortMenu(sortMenu ? undefined : { x: r.left - 3, y: r.bottom + 6 })

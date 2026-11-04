@@ -61,3 +61,16 @@ export function filterInbox<T extends ViewEntry>(entries: T[], query: string): T
   const archiveHit = (a: ViewArchive) => hit(a.name) || a.volumes.some(hit)
   return entries.filter((e) => hit(e.name) || (e.kind === 'archive' ? archiveHit(e) : e.kind !== 'folder' && e.members.some(archiveHit)))
 }
+
+// 卡片上的下载时间：近的用文字（今天、昨天、几天前），今年再早的写 mm/dd，往年的写 yyyy/mm/dd
+export type DownloadedLabel = { kind: 'today' | 'yesterday' } | { kind: 'daysAgo'; n: number } | { kind: 'date'; text: string }
+export function downloadedLabel(iso: string, now = new Date()): DownloadedLabel {
+  const d = new Date(iso)
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const days = Math.round((day(now) - day(d)) / 86400000)
+  if (days <= 0) return { kind: 'today' }
+  if (days === 1) return { kind: 'yesterday' }
+  if (days < 7) return { kind: 'daysAgo', n: days }
+  const md = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+  return { kind: 'date', text: d.getFullYear() === now.getFullYear() ? md : `${d.getFullYear()}/${md}` }
+}
