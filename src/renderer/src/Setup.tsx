@@ -117,7 +117,10 @@ export function Identify({ gameId, onDone }: { gameId: number; onDone: () => voi
       </div>
 
       {tab === 'manual' ? (
-        hints && <Manual gameId={gameId} initial={hints.folderName} onDone={onDone} />
+        hints && game !== undefined && (
+          // 名称的候补：已有信息时先放现在的名称，再是识别出来的候补，最后是文件夹名；去重
+          <Manual gameId={gameId} names={[...new Set([...(hasInfo ? [game.title] : []), ...hints.keywords, hints.folderName])]} onDone={onDone} />
+        )
       ) : picked ? (
         <Picked gameId={gameId} detail={picked} onBack={() => setPicked(undefined)} onDone={onDone} />
       ) : (
@@ -251,9 +254,10 @@ function Picked({ gameId, detail, onBack, onDone }: { gameId: number; detail: Pr
 }
 
 // 手动填写：名称 + 拖进来（或点选）一张封面图
-function Manual({ gameId, initial, onDone }: { gameId: number; initial: string; onDone: () => void }) {
+// names：名称的候补，第一个预填进名称框，其余列在下面点一下就换上
+function Manual({ gameId, names, onDone }: { gameId: number; names: string[]; onDone: () => void }) {
   const { t } = useTranslation()
-  const [title, setTitle] = useState(initial)
+  const [title, setTitle] = useState(names[0] ?? '')
   const [file, setFile] = useState<File>()
   const [over, setOver] = useState(false)
   const [error, setError] = useState('')
@@ -275,6 +279,14 @@ function Manual({ gameId, initial, onDone }: { gameId: number; initial: string; 
         <span>{t('setup.manualTitle')}</span>
         <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
       </label>
+      {names.length > 1 && (
+        <div className="chips hints">
+          <span className="muted">{t('setup.alsoUse')}</span>
+          {names.filter((n) => n !== title).map((n) => (
+            <button key={n} className="chip" onClick={() => setTitle(n)}>{n}</button>
+          ))}
+        </div>
+      )}
       <button
         className={over ? 'drop over' : 'drop'}
         onClick={() => input.current?.click()}
