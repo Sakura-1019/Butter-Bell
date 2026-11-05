@@ -67,12 +67,12 @@ function coverSVG(seed) {
 
 // 全是虚构的名字。min：游玩分钟；last：几小时前玩过；added：几天前加入；gone：已卸载
 const GAMES = [
-  { title: '星降る夜の図書館', circle: '月見堂', status: 'playing', tags: ['RPG', '探索', '中文'], min: 744, last: 22, added: 51, exe: 'Game.exe', folder: '[月見堂] 星降る夜の図書館 v1.03' },
+  { title: '星降る夜の図書館', circle: '月見堂', status: 'playing', tags: ['RPG', '探索', '中文'], min: 744, last: 22, added: 51, exe: 'Game.exe', folder: '[月見堂] 星降る夜の図書館 v1.03', ver: '1.03' },
   { title: '雾都面包店', circle: 'こむぎ工房', status: 'completed', tags: ['经营', '治愈', '中文'], min: 1872, last: 410, added: 125, exe: 'Bakery.exe', folder: '霧の街のパン屋さん' },
-  { title: 'Clockwork Garden', circle: 'Tin Lantern', status: 'wishlist', tags: ['解谜', 'ADV'], added: 6, exe: 'ClockworkGarden.exe', folder: 'Clockwork Garden 1.0.2' },
+  { title: 'Clockwork Garden', circle: 'Tin Lantern', status: 'wishlist', tags: ['解谜', 'ADV'], added: 6, exe: 'ClockworkGarden.exe', folder: 'Clockwork Garden 1.0.2', ver: '1.0.2' },
   { title: '海辺のアトリエ日記', circle: '潮風ソフト', status: 'playing', tags: ['经营', '日常'], min: 408, last: 2, added: 30, exe: 'Atelier.exe', le: true, folder: '海辺のアトリエ日記' },
   { title: '灯台守と七つの鍵', circle: '白線舎', status: 'completed', tags: ['ADV', '解谜'], min: 570, last: 840, added: 64, exe: 'Game.exe', le: true, folder: '灯台守と七つの鍵' },
-  { title: '夏雲ラジオ', circle: '青空回路', status: 'wishlist', tags: ['ADV', '日常'], added: 14, exe: 'NatsugumoRadio.exe', le: true, folder: '夏雲ラジオ_ver1.1' },
+  { title: '夏雲ラジオ', circle: '青空回路', status: 'wishlist', tags: ['ADV', '日常'], added: 14, exe: 'NatsugumoRadio.exe', le: true, folder: '夏雲ラジオ_ver1.1', ver: '1.1' },
   { title: '魔女見習いの薬草帖', circle: '月見堂', status: 'completed', tags: ['RPG', '收集'], min: 1320, last: 2000, added: 136, exe: 'Game.exe', folder: '魔女見習いの薬草帖' },
   { title: 'Paper Moon Express', circle: 'Kite & Key', status: 'playing', tags: ['动作', '横版'], min: 192, last: 47, added: 8, exe: 'PaperMoon.exe', folder: 'PaperMoonExpress_Win' },
   { title: '雪原の郵便配達', circle: '北窓', status: 'wishlist', tags: ['探索', '治愈'], added: 5, exe: 'Yukihara.exe', le: true, folder: '雪原の郵便配達' },
@@ -81,7 +81,7 @@ const GAMES = [
   { title: '小さな竜と大きな森', circle: 'こむぎ工房', status: 'wishlist', tags: ['RPG', '治愈'], added: 3, exe: 'Game.exe', le: true, folder: '小さな竜と大きな森 体験版' },
   { title: '雨宿りの喫茶店', circle: '潮風ソフト', status: 'completed', tags: ['ADV', '治愈', '中文'], min: 318, last: 214, added: 23, exe: 'Cafe.exe', folder: '雨宿りの喫茶店【汉化】' },
   { title: 'Neon Koi Drift', circle: '青空回路', status: 'wishlist', tags: ['动作'], added: 4, exe: 'NeonKoi.exe', folder: 'NeonKoiDrift' },
-  { title: '箱庭鉄道', circle: '北窓', status: 'playing', tags: ['策略', '经营'], min: 942, last: 73, added: 68, exe: 'Hakoniwa.exe', le: true, folder: '箱庭鉄道 v2.10' },
+  { title: '箱庭鉄道', circle: '北窓', status: 'playing', tags: ['策略', '经营'], min: 942, last: 73, added: 68, exe: 'Hakoniwa.exe', le: true, folder: '箱庭鉄道 v2.10', ver: '2.10' },
   { title: '時計塔のメロディ', circle: 'Kite & Key', status: 'completed', tags: ['ADV'], min: 132, last: 3200, added: 139, exe: 'Melody.exe', le: true, folder: '時計塔のメロディ', gone: true },
   { title: 'ひだまり農園', circle: 'こむぎ工房', status: 'completed', tags: ['经营', '治愈'], min: 1134, last: 1060, added: 98, exe: 'Hidamari.exe', folder: 'ひだまり農園' },
   { title: 'Starlit Fishing Club', circle: '潮風ソフト', status: 'wishlist', tags: ['休闲'], added: 2, exe: 'StarlitFishing.exe', folder: 'Starlit Fishing Club' }
@@ -129,8 +129,8 @@ app.whenReady().then(async () => {
       img.src = ${JSON.stringify('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg))} })`)
 
   const addGame = db.prepare(
-    `INSERT INTO games (title, circle, cover_file, play_status, folder_name, uninstalled_at, launch_file, use_locale_emulator, source_kind, added_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?)`
+    `INSERT INTO games (title, circle, cover_file, cover_source, play_status, folder_name, uninstalled_at, launch_file, use_locale_emulator, source_kind, added_at, version)
+     VALUES (?, ?, ?, 'manual', ?, ?, ?, ?, ?, 'manual', ?, ?)`
   )
   const addTag = db.prepare('INSERT INTO tags (name) VALUES (?) ON CONFLICT (name) DO NOTHING')
   const tagGame = db.prepare('INSERT INTO game_tags (game_id, tag_id) SELECT ?, id FROM tags WHERE name = ?')
@@ -138,17 +138,17 @@ app.whenReady().then(async () => {
   for (const [i, g] of GAMES.entries()) {
     const cover = `covers/demo-${i + 1}.png`
     writeFileSync(join(data, cover), Buffer.from((await png(coverSVG((i + 1) * 7 + 3))).split(',')[1], 'base64'))
-    const id = addGame.run(g.title, g.circle, cover, g.status, g.folder, g.gone ? iso(g.last - 1) : null, g.exe, g.le ? 1 : 0, iso(g.added * 24)).lastInsertRowid
+    const id = addGame.run(g.title, g.circle, cover, g.status, g.folder, g.gone ? iso(g.last - 1) : null, g.exe, g.le ? 1 : 0, iso(g.added * 24), g.ver ?? null).lastInsertRowid
     for (const t of g.tags) (addTag.run(t), tagGame.run(id, t))
     if (g.min) addSession.run(id, iso(g.last), iso(g.last - g.min / 60), g.min * 60)
   }
   win.destroy()
 
   const addArchive = db.prepare(`INSERT INTO archives (first_volume_name, total_size, format, current_dir, first_seen_at) VALUES (?, ?, ?, '', ?)`)
-  const addVolume = db.prepare('INSERT INTO volumes (archive_id, seq, file_name, size) VALUES (?, ?, ?, ?)')
+  const addVolume = db.prepare('INSERT INTO volumes (archive_id, seq, file_name, size, modified_at) VALUES (?, ?, ?, ?, ?)')
   for (const a of ARCHIVES) {
     const id = addArchive.run(a.files[0], a.sizes.reduce((x, y) => x + y), a.format, iso(a.hours)).lastInsertRowid
-    a.files.forEach((f, i) => addVolume.run(id, i + 1, f, a.sizes[i]))
+    a.files.forEach((f, i) => addVolume.run(id, i + 1, f, a.sizes[i], iso(a.hours)))
   }
   db.close()
   console.log(`演示数据：${data}（${GAMES.length} 个游戏，${ARCHIVES.length} 个待解压）`)
