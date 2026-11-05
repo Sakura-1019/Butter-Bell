@@ -278,9 +278,6 @@ svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
 .shelf + .shelf { margin-top: 36px; }
 .shelf h2 { font-size: var(--fs-section); font-weight: 600; margin: 0 0 14px; display: flex; align-items: baseline; gap: 8px; }
 .shelf h2 .n { color: var(--faint); font-weight: 400; font-size: 13px; }
-.shelf .row { display: grid; grid-auto-flow: column; grid-auto-columns: 232px; gap: 18px; overflow-x: auto; padding: 4px 4px 12px; margin: -4px -4px 0; scroll-snap-type: x proximity; scrollbar-width: none; }
-.shelf .row::-webkit-scrollbar { display: none; }
-.shelf .row .card { scroll-snap-align: start; }
 
 /* ---------- 列表 ---------- */
 table.list { width: 100%; border-collapse: collapse; }

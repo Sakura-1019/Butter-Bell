@@ -1,4 +1,4 @@
-// 游戏库：封面墙（“全部游戏”按状态分成几排书架）和列表两种视图，照原型。
+// 游戏库：封面墙（“全部游戏”按状态分成几组，每组放不下自动换行）和列表两种视图。
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { GameCard } from '../../preload'
@@ -113,7 +113,7 @@ export default function Library({ games, running, view, grouped, recent, openId,
     return shelves(games).map(([k, list]) => (
       <section key={k} className="shelf">
         <h2>{t(`status.${k}`)}<span className="n num">{list.length}</span></h2>
-        <div className="row">{list.map(card)}</div>
+        <div className="wall">{list.map(card)}</div>
       </section>
     ))
 
