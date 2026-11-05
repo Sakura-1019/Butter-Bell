@@ -125,7 +125,10 @@ svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
 /* ---------- 待解压收件箱 ---------- */
 .inbox-bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px 12px 12px; border-bottom: 1px solid var(--rule); position: sticky; top: -20px; background: var(--ground); z-index: 2; }
 /* 排序胶囊跟在数量后面（靠左）；数量那段留够宽，选中数变化时胶囊不跳 */
-.inbox-bar .sel { color: var(--muted); font-size: 13px; flex: none; min-width: 136px; }
+/* 排序胶囊紧跟在“N 项 · 共 X”后面（文字长短变了胶囊跟着动，用户选的） */
+.inbox-bar .sel { color: var(--muted); font-size: 13px; flex: none; margin-right: 4px; }
+/* “解压所选”固定最小宽度，和下面每行的操作栏同宽，“忽略 / 取消”和它中线对齐 */
+.inbox-bar .btn.primary { min-width: 96px; justify-content: center; }
 .inbox-bar .sortseg { margin-right: auto; }
 .check { width: 18px; height: 18px; border-radius: 5px; box-shadow: inset 0 0 0 1.5px var(--control); display: grid; place-items: center; flex: none; transition: background .12s, box-shadow .12s; }
 .check svg.i { width: 12px; height: 12px; stroke-width: 2.4; opacity: 0; color: var(--on-primary); }
@@ -133,7 +136,7 @@ svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
 .check[aria-checked="true"] svg.i { opacity: 1; }
 .check[aria-checked="mixed"] svg.i { display: none; }
 .check[aria-checked="mixed"]::after { content: ""; width: 8px; height: 2px; background: var(--on-primary); border-radius: 1px; }
-.arch { display: flex; align-items: center; gap: 14px; padding: 12px 28px 12px 12px; border-bottom: 1px solid var(--rule); min-height: 64px; transition: background .12s; }
+.arch { display: flex; align-items: center; gap: 14px; padding: 12px 16px 12px 12px; border-bottom: 1px solid var(--rule); min-height: 64px; transition: background .12s; }
 .arch:hover { background: var(--hover); }
 .arch .ic { width: 36px; height: 36px; border-radius: 9px; background: var(--raised); display: grid; place-items: center; color: var(--muted); flex: none; }
 .arch .body { flex: 1; min-width: 0; }
@@ -442,13 +445,13 @@ table.list { width: 100%; border-collapse: collapse; }
 .sorti .off { opacity: .32; }
 .ctxmenu button[role="menuitemradio"] { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .ctxmenu button[role="menuitemradio"] svg.i { width: 14px; height: 14px; color: var(--muted); }
-/* 大小、下载时间：居中对齐，列宽留出呼吸的间距；“忽略”离右边缘也留一段 */
+/* 大小、下载时间：居中对齐，列宽留出呼吸的间距；“忽略”在和“解压所选”同宽的操作栏里居中 */
 .arch .col { flex: none; text-align: center; font-size: 13px; color: var(--muted); white-space: nowrap; }
 .arch .col.size { width: 104px; }
 .arch .col.date { width: 120px; }
 .arch .col.dash { color: var(--faint); }
-.arch .act { flex: none; width: 80px; display: flex; justify-content: center; }
-.arch .act.wide { width: 214px; } /* = 下载时间 + 间距 + 操作 */
+.arch .act { flex: none; width: 96px; display: flex; justify-content: center; }
+.arch .act.wide { width: 230px; } /* = 下载时间 + 间距 + 操作 */
 .arch .act .side { min-width: 0; width: 100%; }
 .arch .act .side-line { justify-content: flex-end; }
 .arch .act > .linkbtn { padding: 5px 10px; border-radius: var(--radius-control); }
@@ -488,3 +491,6 @@ body { user-select: none; }
 /* 待解压：进度在下载时间那一栏 */
 .arch .col.jobprog { font-size: var(--fs-small); color: var(--faint); display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .arch .col.jobprog .progress { width: 100%; }
+
+/* 工具栏的隐私按钮：只有眼睛图标（开着时换成划掉的眼睛并带底色），文字放在 aria-label 和悬停提示里 */
+.btn.icon { width: 34px; padding: 0; justify-content: center; }

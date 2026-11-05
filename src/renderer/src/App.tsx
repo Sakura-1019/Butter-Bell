@@ -187,9 +187,14 @@ export default function App() {
               ))}
             </div>
           )}
-          <button className={privacy ? 'btn on' : 'btn ghost'} aria-pressed={privacy} title={t('library.privacyHint')} onClick={togglePrivacy}>
+          <button
+            className={privacy ? 'btn icon on' : 'btn icon ghost'}
+            aria-pressed={privacy}
+            aria-label={privacy ? t('library.privacyOn') : t('library.privacy')}
+            title={t('library.privacyHint')}
+            onClick={togglePrivacy}
+          >
             {privacy ? ICONS.eyeOff : ICONS.eye}
-            {privacy ? t('library.privacyOn') : t('library.privacy')}
           </button>
         </div>
         <div className="content">
