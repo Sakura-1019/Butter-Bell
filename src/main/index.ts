@@ -259,11 +259,12 @@ app.whenReady().then(() => {
   })
 
   // replaceManual：现在的封面是用户手选的时候，候选详情里勾了“同时换成 DLsite 封面”
-  ipcMain.handle('games:apply-dlsite', async (_e, id: unknown, code: unknown, tags: unknown, replaceManual: unknown) => {
+  ipcMain.handle('games:apply-dlsite', async (_e, id: unknown, code: unknown, tags: unknown, replaceManual: unknown, title: unknown) => {
     const g = gameRow(id)
     const d = details.get(String(code))
     if (!d) throw new Error('先取详情')
     if (!Array.isArray(tags) || !tags.every((t) => typeof t === 'string' && d.genres.includes(t))) throw new Error('标签不对')
+    if (typeof title !== 'string' || !title.trim()) throw new Error('名称不能是空的')
     const manual = db.prepare('SELECT cover_source FROM games WHERE id = ?').pluck().get(g.id) === 'manual'
     let bytes: Uint8Array | null = null
     if (!manual || replaceManual === true) {
@@ -271,7 +272,7 @@ app.whenReady().then(() => {
       if (!res.ok) throw new Error(`封面下载失败：${res.status}`)
       bytes = new Uint8Array(await res.arrayBuffer())
     }
-    applyDlsite(db, g.id, d, null, tags)
+    applyDlsite(db, g.id, d, null, tags, title)
     if (bytes) await covers.put(g.id, bytes, 'dlsite')
   })
   ipcMain.handle('games:apply-manual', async (_e, id: unknown, title: unknown, bytes: unknown) => {
@@ -411,6 +412,11 @@ app.whenReady().then(() => {
     const g = gameRow(id)
     if (!(bytes instanceof Uint8Array)) throw new Error('封面要是 jpg / png / webp 图片')
     await covers.put(g.id, bytes, 'manual')
+  })
+  // 只打开库里记着的 DLsite 作品页，不接受界面传来的网址
+  ipcMain.handle('games:open-dlsite', async (_e, id: unknown) => {
+    const url = listGames(db).find((x) => x.id === gameRow(id).id)?.dlsiteUrl
+    if (url) await shell.openExternal(url)
   })
   ipcMain.handle('games:open-folder', async (_e, id: unknown) => {
     const err = await shell.openPath(gameRow(id).dir)

@@ -24,6 +24,7 @@ export const ICONS = {
   play: icon(<path d="M7 4.5v15a.8.8 0 0 0 1.2.7l12-7.5a.8.8 0 0 0 0-1.4l-12-7.5A.8.8 0 0 0 7 4.5z" fill="currentColor" stroke="none" />),
   x: icon(<path d="M18 6 6 18M6 6l12 12" />),
   plus: icon(<path d="M12 5v14M5 12h14" />),
+  external: icon(<><path d="M14 4h6v6" /><path d="m20 4-9 9" /><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" /></>),
   search: icon(<><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>)
 }
 

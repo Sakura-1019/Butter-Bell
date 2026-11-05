@@ -1,7 +1,6 @@
 // 游戏库：列出游戏，把 DLsite 选定的候选或手动填写的资料写进去（见 docs/schema-draft.md 的“从 DLsite 选定候选”）。
-import { basename } from 'node:path'
 import type Database from 'better-sqlite3'
-import type { ProductDetail } from '../core/dlsite'
+import { workUrl, type ProductDetail } from '../core/dlsite'
 import type { CoverSource } from '../core/cover'
 import { extractVersion } from '../core/version'
 import { groupArchives, type FileEntry } from '../core/volumes'
@@ -15,6 +14,7 @@ export interface GameCard {
   version: string | null
   launchFile: string | null
   needsMetadata: boolean // 待补资料
+  dlsiteUrl: string | null // 资料来自 DLsite 时的作品页，详情页一键打开
   circle: string | null
   playStatus: 'playing' | 'wishlist' | 'completed'
   uninstalled: boolean // ADR 0004：和游玩状态分开记
@@ -44,6 +44,7 @@ export function listGames(db: Database.Database): GameCard[] {
     version: g.version,
     launchFile: g.launch_file,
     needsMetadata: g.source_kind === null,
+    dlsiteUrl: g.source_kind === 'dlsite' ? workUrl(g.source_ref) : null,
     circle: g.circle,
     playStatus: g.play_status,
     uninstalled: g.uninstalled_at !== null,
@@ -56,21 +57,18 @@ export function listGames(db: Database.Database): GameCard[] {
 }
 
 // tags：用户在候选界面里勾上的 DLsite 类型词，没勾的不写。coverFile 为 null = 保留现在的封面（用户手选的、没勾“同时换封面”）
-export function applyDlsite(db: Database.Database, gameId: number, d: ProductDetail, coverFile: string | null, tags: string[]): void {
+// title：用户在识别页拼好、确认过的名称，总是写进去；原名照旧存 DLsite 的完整名字
+export function applyDlsite(db: Database.Database, gameId: number, d: ProductDetail, coverFile: string | null, tags: string[], title: string): void {
+  if (!title.trim()) throw new Error('名称不能是空的')
   db.transaction(() => {
-    // 名称只在还是文件夹名（没被用户改过）时才换成 DLsite 的名字
     db.prepare(
-      `UPDATE games SET title = CASE WHEN title = @folder THEN @title ELSE title END,
-        original_title = @title, circle = @circle, description = @description,
+      `UPDATE games SET title = @title, original_title = @original, circle = @circle, description = @description,
         source_kind = 'dlsite', source_ref = @code WHERE id = @gameId`
-    ).run({ title: d.title, circle: d.circle, description: d.description, code: d.code, gameId, folder: basename(folderOf(db, gameId)) })
+    ).run({ title: title.trim(), original: d.title, circle: d.circle, description: d.description, code: d.code, gameId })
     if (coverFile) setCover(db, gameId, coverFile, 'dlsite')
     for (const t of tags) addTag(db, gameId, t)
   })()
 }
-
-// 游戏文件夹名；解压到游戏目录外的存的是完整路径，名称只认最后一段
-const folderOf = (db: Database.Database, gameId: number) => db.prepare('SELECT folder_name FROM games WHERE id = ?').pluck().get(gameId) as string
 
 // 换封面并记下来源，返回被换掉的旧文件（相对于数据目录），调用方去删
 export function setCover(db: Database.Database, gameId: number, coverFile: string, source: CoverSource): string | null {

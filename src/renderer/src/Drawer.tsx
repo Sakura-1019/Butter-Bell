@@ -125,13 +125,18 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
             onBlur={() => setRenaming(false)}
           />
         ) : (
-          <h2 title={t('drawer.rename')} onDoubleClick={() => setRenaming(true)}>{g.title}</h2>
+          <h2 className="sel" title={t('drawer.rename')} onDoubleClick={() => setRenaming(true)}>{g.title}</h2>
         )}
-        <div className="maker">{g.circle || t('library.circleUnknown')}</div>
+        <div className="maker sel">{g.circle || t('library.circleUnknown')}</div>
         <div className="d-edit">
           <button className="linkbtn" onClick={() => setRenaming(true)}>{t('drawer.rename')}</button>
           <button className="linkbtn" onClick={() => coverInput.current?.click()}>{t('drawer.changeCover')}</button>
           {!g.needsMetadata && !g.uninstalled && <button className="linkbtn" onClick={() => setModal('identify')}>{t('drawer.reidentify')}</button>}
+          {g.dlsiteUrl && (
+            <button className="linkbtn" title={g.dlsiteUrl} onClick={() => act(() => window.api.games.openDlsite(g.id))}>
+              {t('drawer.openDlsite')}{ICONS.external}
+            </button>
+          )}
           {running && !html && (
             <button className="linkbtn" disabled={countdown > 0} title={t('drawer.captureHint')} onClick={capture}>
               {countdown ? t('drawer.captureIn', { n: countdown }) : t('drawer.capture')}
@@ -249,13 +254,13 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
               />
             ) : (
               <>
-                <div className="lbl">{t('drawer.version')}<small className="num">{g.version ?? t('drawer.versionNone')}</small></div>
+                <div className="lbl">{t('drawer.version')}<small className="num sel">{g.version ?? t('drawer.versionNone')}</small></div>
                 <button className="linkbtn" onClick={() => setEditingVersion(true)}>{t('drawer.change')}</button>
               </>
             )}
           </div>
           <div className="rowline">
-            <div className="lbl">{t('drawer.launchFile')}<small>{g.launchFile ?? t('drawer.noLaunchFile')}</small></div>
+            <div className="lbl">{t('drawer.launchFile')}<small className="sel">{g.launchFile ?? t('drawer.noLaunchFile')}</small></div>
             <button className="linkbtn" disabled={!launchOpts?.candidates.length} title={launchOpts && !launchOpts.candidates.length ? t('drawer.noCandidates') : undefined} onClick={() => setModal('launch')}>
               {t('drawer.change')}
             </button>

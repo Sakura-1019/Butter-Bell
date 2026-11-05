@@ -82,10 +82,10 @@ describe('封面来源', () => {
   })
 
   it('DLsite：给了封面就写成 dlsite；不给（保留手选的）就不动封面', () => {
-    applyDlsite(db, id, detail, 'covers/d.jpg', [])
+    applyDlsite(db, id, detail, 'covers/d.jpg', [], detail.title)
     expect(game(id)).toMatchObject({ coverFile: 'covers/d.jpg', coverSource: 'dlsite' })
     setCover(db, id, 'covers/m.png', 'manual')
-    applyDlsite(db, id, detail, null, [])
+    applyDlsite(db, id, detail, null, [], detail.title)
     expect(game(id)).toMatchObject({ coverFile: 'covers/m.png', coverSource: 'manual', needsMetadata: false })
   })
 
@@ -111,6 +111,6 @@ describe('封面来源', () => {
 it('解压到游戏目录外（存完整路径）：名称只用文件夹名，选 DLsite 候选时照样换成 DLsite 的名字', () => {
   const id = addGame(db, { folderName: String.raw`D:\Games\Foo`, launchFile: null, members: [] }, T)
   expect(game(id).title).toBe('Foo')
-  applyDlsite(db, id, detail, null, [])
+  applyDlsite(db, id, detail, null, [], detail.title)
   expect(game(id).title).toBe(detail.title)
 })

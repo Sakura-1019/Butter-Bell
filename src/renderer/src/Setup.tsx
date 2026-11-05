@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Candidate, ProductDetail } from '../../preload'
+import { joinSegments, splitTitle, type Segment } from '../../core/title-segments'
 import Modal from './Modal'
 import { ICONS } from './icons'
 
@@ -57,6 +58,7 @@ export function Identify({ gameId, onDone }: { gameId: number; onDone: () => voi
   const [error, setError] = useState('')
   const [picked, setPicked] = useState<ProductDetail | null>()
   const latest = useRef(0) // 只认最后一次搜索的结果，先发出去的慢请求回来了也不覆盖
+  const down = useRef([0, 0]) // 候选上按下鼠标的位置：拖动过（在选字）就不算点击
 
   const search = async (k: string) => {
     setKeyword(k)
@@ -134,13 +136,23 @@ export function Identify({ gameId, onDone }: { gameId: number; onDone: () => voi
             {busy && !results?.length && <p className="muted">{t('setup.searching')}</p>}
             {results && !results.length && !busy && <p className="muted">{t('setup.noResults')}</p>}
             {results?.map((c) => (
-              <button key={c.code} className="cand" disabled={busy} onClick={() => pick(c)}>
+              // 不用 <button>：按钮里的字选不中。拖动选中名字后松开不算点击，方便复制
+              <div
+                key={c.code}
+                className="cand"
+                role="button"
+                tabIndex={0}
+                aria-disabled={busy}
+                onMouseDown={(e) => (down.current = [e.clientX, e.clientY])}
+                onClick={(e) => !busy && Math.hypot(e.clientX - down.current[0], e.clientY - down.current[1]) < 5 && pick(c)}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && !busy && (e.preventDefault(), pick(c))}
+              >
                 <img src={c.coverUrl} alt="" loading="lazy" />
-                <span className="txt">
+                <span className="txt sel">
                   <b>{c.title}</b>
                   <small>{[c.circle, c.workType, c.code].filter(Boolean).join(' · ')}</small>
                 </span>
-              </button>
+              </div>
             ))}
           </div>
         </>
@@ -162,13 +174,29 @@ function Picked({ gameId, detail, onBack, onDone }: { gameId: number; detail: Pr
   // 现在的封面是用户手选的：默认保留，勾了才换成 DLsite 的
   const [manualCover, setManualCover] = useState(false)
   const [replaceCover, setReplaceCover] = useState(false)
-  useEffect(() => void window.api.games.list().then((gs) => setManualCover(gs.find((x) => x.id === gameId)?.coverSource === 'manual')), [gameId])
+  // 名称：DLsite 作品名拆成词段，宣传用的【】[] 默认熄灭；输入框里是最后写进库的名称
+  const [segs, setSegs] = useState(() => splitTitle(detail.title))
+  const [title, setTitle] = useState(() => joinSegments(splitTitle(detail.title)))
+  useEffect(() => {
+    window.api.games.list().then((gs) => {
+      const g = gs.find((x) => x.id === gameId)
+      setManualCover(g?.coverSource === 'manual')
+      // 用户自己改过名的：输入框先放现在的名字，点了词段才换成拼出来的
+      const folder = g?.folderName.split(/[\\/]/).pop()
+      if (g && g.title !== folder && g.title !== detail.title) setTitle(g.title)
+    })
+  }, [gameId, detail.title])
+  const toggleSeg = (i: number) => {
+    const next = segs.map((s, j): Segment => (j === i ? { ...s, on: !s.on } : s))
+    setSegs(next)
+    setTitle(joinSegments(next))
+  }
   const [error, setError] = useState('')
   const toggle = (g: string) => setTags((s) => (s.delete(g) ? new Set(s) : new Set(s.add(g))))
   const use = async () => {
     setBusy(true)
     try {
-      await window.api.games.applyDlsite(gameId, detail.code, [...tags], replaceCover)
+      await window.api.games.applyDlsite(gameId, detail.code, [...tags], replaceCover, title)
       onDone()
     } catch (e) {
       setError(errorText(e))
@@ -179,9 +207,18 @@ function Picked({ gameId, detail, onBack, onDone }: { gameId: number; detail: Pr
     <div className="picked">
       <img className="pcover" src={detail.coverUrl} alt="" />
       <div className="pbody">
-        <b className="ptitle">{detail.title}</b>
-        <small className="muted">{[detail.circle, detail.releaseDate, detail.code].filter(Boolean).join(' · ')}</small>
-        {detail.description && <p className="pdesc">{detail.description}</p>}
+        <b className="ptitle sel">{detail.title}</b>
+        <small className="muted sel">{[detail.circle, detail.releaseDate, detail.code].filter(Boolean).join(' · ')}</small>
+        {detail.description && <p className="pdesc sel">{detail.description}</p>}
+        <small className="muted pname">{t('setup.nameHint')}</small>
+        {segs.length > 1 && (
+          <div className="chips segs">
+            {segs.map((s, i) => (
+              <button key={i} className="chip" aria-pressed={s.on} onClick={() => toggleSeg(i)}>{s.text}</button>
+            ))}
+          </div>
+        )}
+        <input className="input" value={title} aria-label={t('setup.nameLabel')} onChange={(e) => setTitle(e.target.value)} />
         {detail.genres.length > 0 && (
           <>
             <small className="muted">{t('setup.genresHint')}</small>
@@ -201,7 +238,7 @@ function Picked({ gameId, detail, onBack, onDone }: { gameId: number; detail: Pr
         {error && <p className="warn">{t('setup.error', { detail: error })}</p>}
         <div className="row-btns">
           <button className="btn ghost" onClick={onBack}>{t('setup.back')}</button>
-          <button className="btn primary" disabled={busy} onClick={use}>{busy ? t('setup.saving') : t('setup.use')}</button>
+          <button className="btn primary" disabled={busy || !title.trim()} onClick={use}>{busy ? t('setup.saving') : t('setup.use')}</button>
         </div>
       </div>
     </div>

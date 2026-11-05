@@ -544,8 +544,10 @@ function Row({ unit, checked, job, onClick, onDoubleClick, onContextMenu, onIgno
       </div>
       {/* 大小、下载时间在右侧右对齐，按它们排序时一眼能扫下来；“忽略”紧跟在后面 */}
       <span className="col size num">{size(unit.size)}</span>
-      {job ? (
-        // 解压中 / 失败：进度或“重试 / 先不解压”占掉下载时间和操作两栏，大小照样对齐
+      {job && (job.state === 'queued' || job.state === 'running') ? (
+        <JobProgress job={job} />
+      ) : job ? (
+        // 失败 / 要密码：“重试 / 先不解压”占掉下载时间和操作两栏，大小照样对齐
         <div className="act wide">
           <JobSide job={job} />
         </div>
@@ -563,7 +565,25 @@ function Row({ unit, checked, job, onClick, onDoubleClick, onContextMenu, onIgno
   )
 }
 
-// 行右侧：排队中 / 解压进度 / 失败后的操作
+// 排队中 / 解压中：进度在下载时间那一栏，和上下几行的日期对齐；“取消”在原来“忽略”的位置
+function JobProgress({ job }: { job: Job }) {
+  const { t } = useTranslation()
+  return (
+    <>
+      <div className="col date num jobprog">
+        {job.state === 'queued' ? t('extract.queued') : t('extract.running', { pct: job.pct })}
+        <div className="progress" role="progressbar" aria-valuenow={job.pct} aria-valuemin={0} aria-valuemax={100}>
+          <div style={{ width: `${job.pct}%` }} />
+        </div>
+      </div>
+      <div className="act">
+        <button className="linkbtn" onClick={() => window.api.extract.cancel(job.key)}>{t('extract.cancel')}</button>
+      </div>
+    </>
+  )
+}
+
+// 行右侧：失败、要密码时的操作
 function JobSide({ job }: { job: Job }) {
   const { t } = useTranslation()
   const cancel = () => window.api.extract.cancel(job.key)
@@ -577,21 +597,9 @@ function JobSide({ job }: { job: Job }) {
         <button className="linkbtn" onClick={cancel}>{t('extract.dismiss')}</button>
       </div>
     )
-  if (job.state === 'password')
-    return (
-      <div className="side">
-        <button className="linkbtn" onClick={cancel}>{t('extract.dismiss')}</button>
-      </div>
-    )
   return (
-    <div className="side num">
-      <div className="side-line">
-        {job.state === 'queued' ? t('extract.queued') : t('extract.running', { pct: job.pct })}
-        <button className="linkbtn" onClick={cancel}>{t('extract.cancel')}</button>
-      </div>
-      <div className="progress" role="progressbar" aria-valuenow={job.pct} aria-valuemin={0} aria-valuemax={100}>
-        <div style={{ width: `${job.pct}%` }} />
-      </div>
+    <div className="side">
+      <button className="linkbtn" onClick={cancel}>{t('extract.dismiss')}</button>
     </div>
   )
 }

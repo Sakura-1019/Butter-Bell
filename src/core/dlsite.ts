@@ -52,6 +52,12 @@ export function parseProduct(json: string): ProductDetail | null {
   }
 }
 
+// 作品页网址：RJ 同人、VJ 商业、BJ 书籍各在自己的分区。资料只存了作品号，网址每次现拼
+export function workUrl(code: string): string | null {
+  const area = { RJ: 'maniax', VJ: 'pro', BJ: 'books' }[code.slice(0, 2)]
+  return area && /^[A-Z]{2}\d+$/.test(code) ? `https://www.dlsite.com/${area}/work/=/product_id/${code}.html` : null
+}
+
 // DLsite 的列表字段有时是数组，有时是 {"3": {...}, "4": {...}} 这样的对象，也可能是 null
 function list(v: unknown): any[] {
   return Array.isArray(v) ? v : v && typeof v === 'object' ? Object.values(v) : []

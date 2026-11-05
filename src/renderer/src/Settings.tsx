@@ -19,7 +19,7 @@ export default function Settings({ s, onChange, onInbox, update, onUpdate }: {
   const choose = (key: Parameters<typeof window.api.settings.choose>[0]) => window.api.settings.choose(key).then(onChange)
   const path = (label: string, hint: string, value: string | null, key: 'archive_dir' | 'library_dir' | 'locale_emulator_path') => (
     <div className="rowline">
-      <div className="lbl">{label}<small title={value ?? undefined}>{value ?? hint}</small></div>
+      <div className="lbl">{label}<small className={value ? 'sel' : undefined} title={value ?? undefined}>{value ?? hint}</small></div>
       {key === 'locale_emulator_path' && value && <button className="linkbtn" onClick={() => set(key, null)}>{t('settings.clear')}</button>}
       <button className="btn" onClick={() => choose(key)}>{value ? t('settings.change') : t('settings.choose')}</button>
     </div>

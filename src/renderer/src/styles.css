@@ -454,3 +454,26 @@ table.list { width: 100%; border-collapse: collapse; }
 .linkbtn.danger-text { color: var(--negative); }
 .linkbtn.danger-text:hover { background: var(--negative-soft); color: var(--negative); }
 .linkbtn.danger-text[disabled] { opacity: .6; cursor: default; background: transparent; }
+
+/* 0.2.1：界面文字默认选不中，游戏名、社团、简介、路径这类内容（.sel）和输入框可以选中复制 */
+body { user-select: none; }
+.sel, input, textarea { user-select: text; }
+.sel { cursor: text; }
+
+/* 识别页候选：整条可点，名字可以拖选 */
+.cand { cursor: pointer; }
+.cand[aria-disabled="true"] { cursor: default; opacity: .6; }
+
+/* 识别页拼名称：点亮的词段是名称的一部分，熄灭的划掉 */
+.chips.segs .chip { height: 28px; padding: 0 10px; font-size: 13px; background: var(--raised); color: var(--text); }
+.chips.segs .chip[aria-pressed="false"] { background: transparent; color: var(--faint); text-decoration: line-through; box-shadow: inset 0 0 0 1px var(--rule); }
+.chips.segs .chip:hover { background: var(--active); }
+.pbody .pname { margin-top: 6px; }
+.pbody > .input { height: 34px; font-size: 14px; width: 100%; margin-bottom: 6px; }
+
+/* 详情页“DLsite 页面”带一个小外链图标 */
+.d-edit .linkbtn svg.i { width: 13px; height: 13px; }
+
+/* 待解压：进度在下载时间那一栏 */
+.arch .col.jobprog { font-size: var(--fs-small); color: var(--faint); display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.arch .col.jobprog .progress { width: 100%; }

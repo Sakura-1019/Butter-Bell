@@ -19,7 +19,7 @@ const tags = () => db.prepare('SELECT t.name FROM game_tags g JOIN tags t ON t.i
 
 describe('applyDlsite：DLsite 详情写进游戏记录', () => {
   it('名称还是文件夹名时换成 DLsite 的名字；原名、社团、简介、封面、来源都写上', () => {
-    applyDlsite(db, id, detail, 'covers/1.jpg', [])
+    applyDlsite(db, id, detail, 'covers/1.jpg', [], detail.title)
     expect(game()).toEqual({
       title: '蒼の旅団アリアとニナ',
       original_title: '蒼の旅団アリアとニナ',
@@ -31,22 +31,37 @@ describe('applyDlsite：DLsite 详情写进游戏记录', () => {
     })
   })
 
-  it('用户已经改过名称的不覆盖', () => {
+  it('名称总是用识别页上确认的那个（用户已经改过名也换）；原名仍是 DLsite 的完整名字', () => {
     db.prepare("UPDATE games SET title = '我起的名字' WHERE id = ?").run(id)
-    applyDlsite(db, id, detail, 'covers/1.jpg', [])
-    expect(game()).toMatchObject({ title: '我起的名字', original_title: '蒼の旅団アリアとニナ' })
+    applyDlsite(db, id, detail, 'covers/1.jpg', [], '拼出来的名字')
+    expect(game()).toMatchObject({ title: '拼出来的名字', original_title: '蒼の旅団アリアとニナ' })
+  })
+
+  it('资料来自 DLsite 的游戏有作品页网址，手动填写和待补资料的没有', () => {
+    const url = () => listGames(db).find((g) => g.id === id)!.dlsiteUrl
+    expect(url()).toBeNull()
+    applyDlsite(db, id, detail, null, [], detail.title)
+    expect(url()).toBe('https://www.dlsite.com/maniax/work/=/product_id/RJ00473501.html')
+    applyManual(db, id, '自己填的', 'covers/1.png')
+    expect(url()).toBeNull()
+  })
+
+  it('名称去掉首尾空格；是空的就不写，抛错', () => {
+    applyDlsite(db, id, detail, null, [], '  旅団  ')
+    expect(game()).toMatchObject({ title: '旅団' })
+    expect(() => applyDlsite(db, id, detail, null, [], '   ')).toThrow()
   })
 
   it('只有勾上的 DLsite 类型词变成标签；已有的同名标签（不分大小写）复用', () => {
     db.prepare("INSERT INTO tags (name) VALUES ('adv')").run()
-    applyDlsite(db, id, detail, 'covers/1.jpg', ['ADV', detail.genres[0]])
+    applyDlsite(db, id, detail, 'covers/1.jpg', ['ADV', detail.genres[0]], detail.title)
     expect(tags()).toEqual(['adv', detail.genres[0]].sort())
     expect(db.prepare('SELECT COUNT(*) FROM tags').pluck().get()).toBe(2)
   })
 
   it('再选一次（重新识别）不会重复加标签', () => {
-    applyDlsite(db, id, detail, 'covers/1.jpg', ['ADV'])
-    applyDlsite(db, id, detail, 'covers/2.jpg', ['ADV'])
+    applyDlsite(db, id, detail, 'covers/1.jpg', ['ADV'], detail.title)
+    applyDlsite(db, id, detail, 'covers/2.jpg', ['ADV'], detail.title)
     expect(tags()).toEqual(['ADV'])
     expect(game()).toMatchObject({ cover_file: 'covers/2.jpg' })
   })
@@ -62,12 +77,12 @@ describe('applyManual：手动填写', () => {
 describe('listGames', () => {
   it('列出全部游戏（已卸载的也在，单独标出），新加的在前；带上启动文件、是否待补资料、标签', () => {
     const b = addGame(db, { folderName: 'B', launchFile: 'b.exe', members: [] }, '2026-11-04T00:00:00Z')
-    applyDlsite(db, id, detail, 'covers/1.jpg', ['ADV', 'RPG'])
+    applyDlsite(db, id, detail, 'covers/1.jpg', ['ADV', 'RPG'], detail.title)
     setLaunchFile(db, id, 'Game.exe')
     db.prepare("UPDATE games SET uninstalled_at = ? WHERE id = ?").run(T, id)
     const base = { coverSource: null, version: null, circle: null, playStatus: 'wishlist', uninstalled: false, useLocaleEmulator: false, tags: [], playSeconds: 0, lastPlayedAt: null }
     expect(listGames(db)).toEqual([
-      { ...base, id: b, title: 'B', folderName: 'B', coverFile: null, launchFile: 'b.exe', needsMetadata: true, addedAt: '2026-11-04T00:00:00Z' },
+      { ...base, id: b, title: 'B', folderName: 'B', coverFile: null, launchFile: 'b.exe', needsMetadata: true, dlsiteUrl: null, addedAt: '2026-11-04T00:00:00Z' },
       {
         ...base,
         id,
@@ -78,6 +93,7 @@ describe('listGames', () => {
         coverSource: 'dlsite',
         launchFile: 'Game.exe',
         needsMetadata: false,
+        dlsiteUrl: 'https://www.dlsite.com/maniax/work/=/product_id/RJ00473501.html',
         uninstalled: true,
         tags: ['ADV', 'RPG'],
         addedAt: T

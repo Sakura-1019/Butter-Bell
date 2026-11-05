@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseProduct, parseSearchResults, rankCandidates } from './dlsite'
+import { parseProduct, parseSearchResults, rankCandidates, workUrl } from './dlsite'
 
 // 照 DLsite 页面结构写的样本（2026-11-03 对照真实响应），作品都是虚构的，测试不联网
 const fixture = (name: string) => readFileSync(join(__dirname, 'fixtures', name), 'utf8')
@@ -96,5 +96,18 @@ describe('rankCandidates', () => {
       r('RJ5', 'もうひとつ関係ない')
     ])
     expect(ranked.map((c) => c.code)).toEqual(['RJ4', 'RJ3', 'RJ1', 'RJ2', 'RJ5'])
+  })
+})
+
+describe('workUrl', () => {
+  it('RJ 号是同人区，VJ 号是商业区，BJ 号是书籍区', () => {
+    expect(workUrl('RJ00473501')).toBe('https://www.dlsite.com/maniax/work/=/product_id/RJ00473501.html')
+    expect(workUrl('VJ001234')).toBe('https://www.dlsite.com/pro/work/=/product_id/VJ001234.html')
+    expect(workUrl('BJ001234')).toBe('https://www.dlsite.com/books/work/=/product_id/BJ001234.html')
+  })
+
+  it('不是作品号时返回 null，不拼网址', () => {
+    expect(workUrl('')).toBeNull()
+    expect(workUrl('RJ12/../x')).toBeNull()
   })
 })

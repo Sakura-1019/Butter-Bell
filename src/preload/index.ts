@@ -66,7 +66,9 @@ const api = {
     setLaunch: (id: number, file: string): Promise<void> => ipcRenderer.invoke('games:set-launch', id, file),
     hints: (id: number): Promise<{ keyword: string; keywords: string[]; workCode: string | null; folderName: string }> => ipcRenderer.invoke('games:hints', id),
     // replaceManual：现在的封面是手选的时候，要不要同时换成 DLsite 封面
-    applyDlsite: (id: number, code: string, tags: string[], replaceManual = false): Promise<void> => ipcRenderer.invoke('games:apply-dlsite', id, code, tags, replaceManual),
+    // title：识别页上拼好、确认过的名称
+    applyDlsite: (id: number, code: string, tags: string[], replaceManual: boolean, title: string): Promise<void> =>
+      ipcRenderer.invoke('games:apply-dlsite', id, code, tags, replaceManual, title),
     applyManual: (id: number, title: string, cover: Uint8Array): Promise<void> => ipcRenderer.invoke('games:apply-manual', id, title, cover),
     launch: (id: number): Promise<void> => ipcRenderer.invoke('games:launch', id),
     update: (id: number, patch: { playStatus?: GameCard['playStatus']; useLocaleEmulator?: boolean; title?: string; version?: string }): Promise<void> =>
@@ -74,6 +76,7 @@ const api = {
     tag: (id: number, name: string, on: boolean): Promise<void> => ipcRenderer.invoke('games:tag', id, name, on),
     setCover: (id: number, cover: Uint8Array): Promise<void> => ipcRenderer.invoke('games:set-cover', id, cover),
     openFolder: (id: number): Promise<void> => ipcRenderer.invoke('games:open-folder', id),
+    openDlsite: (id: number): Promise<void> => ipcRenderer.invoke('games:open-dlsite', id),
     uninstall: (id: number): Promise<void> => ipcRenderer.invoke('games:uninstall', id),
     purge: (id: number): Promise<void> => ipcRenderer.invoke('games:purge', id),
     // 详情页“截取当前画面”：主进程先把游戏窗口切到前面，等 3 秒再截
