@@ -56,6 +56,10 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
       onError(errorText(e))
     }
   }
+  // 运行中按钮悬停（或键盘聚焦）时变成“退出游戏”。刚点完启动、鼠标还停在按钮上时不变：要先移开再移回来（armed）
+  const [hover, setHover] = useState(false)
+  const [armed, setArmed] = useState(true)
+  const [keyFocus, setKeyFocus] = useState(false)
   const [busy, setBusy] = useState(false)
   const coverInput = useRef<HTMLInputElement>(null)
 
@@ -92,13 +96,32 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
   }
   const html = /.html?$/i.test(g.launchFile ?? '') // 浏览器里玩：不计时长
 
+  const pointer = {
+    onMouseEnter: () => setHover(true),
+    onMouseLeave: () => (setHover(false), setArmed(true)),
+    onFocus: (e: React.FocusEvent<HTMLButtonElement>) => setKeyFocus(e.currentTarget.matches(':focus-visible')),
+    onBlur: () => setKeyFocus(false)
+  }
+  const offerQuit = running && !html && ((hover && armed) || keyFocus || quitState === 'closing')
+
   let launch
   if (g.uninstalled) launch = null
+  else if (offerQuit)
+    // 先正常关闭（游戏可以弹保存提示）；5 秒没关掉才在下面问要不要强制结束
+    launch = (
+      <button className="btn primary running quit" disabled={quitState !== 'idle'} {...pointer} onClick={() => quit(false)}>
+        {t(quitState === 'closing' ? 'drawer.quitting' : 'drawer.quit')}
+      </button>
+    )
   else if (running)
-    launch = <button className="btn primary running" disabled aria-live="polite">{ICONS.play}<span className="num">{t('drawer.running', { t: elapsed })}</span></button>
+    launch = (
+      <button className="btn primary running" aria-live="polite" {...pointer}>
+        {ICONS.play}<span className="num">{t('drawer.running', { t: elapsed })}</span>
+      </button>
+    )
   else
     launch = (
-      <button className="btn primary" disabled={busy || !g.launchFile} onClick={() => act(() => window.api.games.launch(g.id))}>
+      <button className="btn primary" disabled={busy || !g.launchFile} {...pointer} onClick={() => (setArmed(false), act(() => window.api.games.launch(g.id)))}>
         {ICONS.play}{t('drawer.launch')}
       </button>
     )
@@ -131,12 +154,6 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
         <div className="d-edit">
           <button className="linkbtn" onClick={() => setRenaming(true)}>{t('drawer.rename')}</button>
           <button className="linkbtn" onClick={() => coverInput.current?.click()}>{t('drawer.changeCover')}</button>
-          {!g.needsMetadata && !g.uninstalled && <button className="linkbtn" onClick={() => setModal('identify')}>{t('drawer.reidentify')}</button>}
-          {g.dlsiteUrl && (
-            <button className="linkbtn" title={g.dlsiteUrl} onClick={() => act(() => window.api.games.openDlsite(g.id))}>
-              {t('drawer.openDlsite')}{ICONS.external}
-            </button>
-          )}
           {running && !html && (
             <button className="linkbtn" disabled={countdown > 0} title={t('drawer.captureHint')} onClick={capture}>
               {countdown ? t('drawer.captureIn', { n: countdown }) : t('drawer.capture')}
@@ -156,32 +173,39 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
         </div>
       </div>
 
-      {g.needsMetadata && !g.uninstalled && (
-        <div className="note">
-          <strong>{t(g.coverFile ? 'drawer.needsTitleCovered' : 'drawer.needsTitle')}</strong>{t('drawer.needsHint')}
-          <div className="acts"><button className="btn" onClick={() => setModal('identify')}>{t('drawer.identify')}</button></div>
+      {/* 信息从哪来，和“识别信息”入口：两种情况都在这里。还没信息时是醒目的提示框，有了就收成一行小字 */}
+      {g.needsMetadata ? (
+        !g.uninstalled && (
+          <div className="note">
+            <strong>{t(g.coverFile ? 'drawer.needsTitleCovered' : 'drawer.needsTitle')}</strong>{t('drawer.needsHint')}
+            <div className="acts"><button className="btn" onClick={() => setModal('identify')}>{t('drawer.identify')}</button></div>
+          </div>
+        )
+      ) : (
+        <div className="d-info">
+          <span className="src">
+            {g.sourceKind === 'dlsite' ? <>{t('drawer.infoDlsite')}<span className="sep">·</span><span className="sel num">{g.sourceRef}</span></> : t('drawer.infoManual')}
+          </span>
+          {g.dlsiteUrl && (
+            <button className="linkbtn" title={g.dlsiteUrl} onClick={() => act(() => window.api.games.openDlsite(g.id))}>
+              {t('drawer.openDlsite')}{ICONS.external}
+            </button>
+          )}
+          {!g.uninstalled && <button className="linkbtn" onClick={() => setModal('identify')}>{t('drawer.identify')}</button>}
         </div>
       )}
       {g.uninstalled && <div className="note"><strong>{t('drawer.goneTitle')}</strong>{t('drawer.goneHint')}</div>}
 
       {launch && <div className="d-launch">{launch}</div>}
-      {/* 退出游戏：只在运行时出现。先正常关闭；5 秒没关掉才问要不要强制结束 */}
-      {running && !html && (
-        quitState === 'stuck' ? (
-          <div className="confirm">
-            <p>{t('drawer.quitStuck')}</p>
-            <div className="acts">
-              <button className="btn ghost" onClick={() => setQuitState('idle')}>{t('common.cancel')}</button>
-              <button className="btn danger solid" onClick={() => quit(true)}>{t('drawer.forceQuit')}</button>
-            </div>
+      {/* 运行中按钮悬停时点了正常关闭；5 秒没关掉才问要不要强制结束 */}
+      {running && !html && quitState === 'stuck' && (
+        <div className="confirm">
+          <p>{t('drawer.quitStuck')}</p>
+          <div className="acts">
+            <button className="btn ghost" onClick={() => setQuitState('idle')}>{t('common.cancel')}</button>
+            <button className="btn danger solid" onClick={() => quit(true)}>{t('drawer.forceQuit')}</button>
           </div>
-        ) : (
-          <div className="d-quit">
-            <button className="linkbtn danger-text" disabled={quitState === 'closing'} onClick={() => quit(false)}>
-              {t(quitState === 'closing' ? 'drawer.quitting' : 'drawer.quit')}
-            </button>
-          </div>
-        )
+        </div>
       )}
       {launch && html && <p className="muted small d-hint">{t('drawer.htmlHint')}</p>}
       <div className="d-stats">

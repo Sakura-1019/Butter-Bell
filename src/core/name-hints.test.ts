@@ -58,3 +58,19 @@ describe('nameHints', () => {
     expect(nameHints('Still Alive Ver.1.25', [], () => undefined).keywords).toEqual(['Still Alive'])
   })
 })
+
+describe('nameHints：游戏窗口标题', () => {
+  const paths = ['Game.exe', 'Data.wolf']
+  it('带假名的窗口标题排最前，和配置里读到的标题一样', () => {
+    expect(nameHints('GAME', paths, () => undefined, '魔女の館へようこそ - WOLF RPG Editor').keywords[0]).toBe('魔女の館へようこそ')
+  })
+
+  it('不带假名的窗口标题排在压缩包名后面；清洗后是通用名字的不要', () => {
+    expect(nameHints('星の庭ver1.0', paths, () => undefined, '星之庭 汉化版').keywords.slice(0, 2)).toEqual(['星の庭', '星之庭'])
+    expect(nameHints('星の庭', paths, () => undefined, 'Game').keywords).toEqual(['星の庭'])
+  })
+
+  it('没有窗口标题时和以前一样', () => {
+    expect(nameHints('星の庭', paths, () => undefined, null).keywords).toEqual(['星の庭'])
+  })
+})

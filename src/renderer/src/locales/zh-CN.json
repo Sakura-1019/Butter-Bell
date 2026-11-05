@@ -8,7 +8,7 @@
   "library": {
     "empty": "游戏库还是空的。去“待解压”里勾选压缩包解压，解压好的游戏会出现在这里。",
     "needsCover": "待补封面",
-    "needsMetadata": "待补资料",
+    "needsMetadata": "待补信息",
     "privacy": "隐私",
     "privacyOn": "封面已模糊",
     "privacyHint": "一键模糊所有封面（Ctrl+Shift+H）",
@@ -153,7 +153,7 @@
     "launchTitle": "选择启动文件",
     "launchHint": "找到 {{count}} 个 exe。选一个点“启动”时运行的，以后在详情里还能改。",
     "next": "下一步",
-    "title": "补资料：{{name}}",
+    "title": "识别信息：{{name}}",
     "tab": {
       "dlsite": "DLsite 搜索",
       "manual": "手动填写"
@@ -175,7 +175,8 @@
     "dropCover": "把封面图拖到这里，或点一下选择图片",
     "save": "保存",
     "skip": "先跳过",
-    "skipHint": "跳过后，游戏先以“待补资料”进库，点开它还能再补。",
+    "skipHint": "跳过后，游戏先以“待补信息”进库，点开它还能再补。",
+    "current": "当前",
     "replaceCover": "同时换成 DLsite 的封面（现在的封面是你自己选的）"
   },
   "status": {
@@ -225,8 +226,9 @@
     "purgeGo": "彻底移除",
     "needsTitle": "还没有封面和名称",
     "needsHint": "现在显示的是文件夹名。可以去 DLsite 搜索候选，挑一个对的；搜不到就手动填。",
-    "identify": "补资料",
-    "reidentify": "重新识别",
+    "identify": "识别信息",
+    "infoDlsite": "信息来自 DLsite",
+    "infoManual": "信息是手动填写的",
     "openDlsite": "DLsite 页面",
     "changeCover": "换封面",
     "rename": "改名称",

@@ -1,7 +1,7 @@
 // 解压完的游戏补资料：先选启动文件（有多个 exe 时），再从 DLsite 候选里点选，或者手动填写。程序从不替用户选候选。
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { Candidate, ProductDetail } from '../../preload'
+import type { Candidate, GameCard, ProductDetail } from '../../preload'
 import { joinSegments, splitTitle, type Segment } from '../../core/title-segments'
 import Modal from './Modal'
 import { ICONS } from './icons'
@@ -59,6 +59,10 @@ export function Identify({ gameId, onDone }: { gameId: number; onDone: () => voi
   const [picked, setPicked] = useState<ProductDetail | null>()
   const latest = useRef(0) // 只认最后一次搜索的结果，先发出去的慢请求回来了也不覆盖
   const down = useRef([0, 0]) // 候选上按下鼠标的位置：拖动过（在选字）就不算点击
+  // 这个游戏现在的名称和信息来源：标题用名称（文件夹名常常认不出是哪个游戏）；已有信息时底部是“取消”，当前用的作品标“当前”
+  const [game, setGame] = useState<GameCard>()
+  useEffect(() => void window.api.games.list().then((gs) => setGame(gs.find((x) => x.id === gameId))), [gameId])
+  const hasInfo = game ? !game.needsMetadata : false
 
   const search = async (k: string) => {
     setKeyword(k)
@@ -103,7 +107,7 @@ export function Identify({ gameId, onDone }: { gameId: number; onDone: () => voi
   }
 
   return (
-    <Modal wide title={t('setup.title', { name: hints?.folderName ?? '' })} onClose={onDone}>
+    <Modal wide title={t('setup.title', { name: game?.title ?? hints?.folderName ?? '' })} onClose={onDone}>
       <div className="seg" role="tablist">
         {(['dlsite', 'manual'] as const).map((k) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
@@ -149,7 +153,7 @@ export function Identify({ gameId, onDone }: { gameId: number; onDone: () => voi
               >
                 <img src={c.coverUrl} alt="" loading="lazy" />
                 <span className="txt sel">
-                  <b>{c.title}</b>
+                  <b>{c.title}{hasInfo && game?.sourceKind === 'dlsite' && game.sourceRef === c.code && <span className="current">{t('setup.current')}</span>}</b>
                   <small>{[c.circle, c.workType, c.code].filter(Boolean).join(' · ')}</small>
                 </span>
               </div>
@@ -158,9 +162,10 @@ export function Identify({ gameId, onDone }: { gameId: number; onDone: () => voi
         </>
       )}
 
+      {/* 还没信息：可以先跳过，以“待补信息”进库；已有信息：只是取消，现在的信息不变 */}
       <div className="foot">
-        <span className="grow muted small">{t('setup.skipHint')}</span>
-        <button className="btn ghost" onClick={onDone}>{t('setup.skip')}</button>
+        <span className="grow muted small">{hasInfo ? '' : t('setup.skipHint')}</span>
+        <button className="btn ghost" onClick={onDone}>{hasInfo ? t('common.cancel') : t('setup.skip')}</button>
       </div>
     </Modal>
   )

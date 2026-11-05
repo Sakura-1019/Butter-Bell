@@ -82,7 +82,7 @@ describe('listGames', () => {
     db.prepare("UPDATE games SET uninstalled_at = ? WHERE id = ?").run(T, id)
     const base = { coverSource: null, version: null, circle: null, playStatus: 'wishlist', uninstalled: false, useLocaleEmulator: false, tags: [], playSeconds: 0, lastPlayedAt: null }
     expect(listGames(db)).toEqual([
-      { ...base, id: b, title: 'B', folderName: 'B', coverFile: null, launchFile: 'b.exe', needsMetadata: true, dlsiteUrl: null, addedAt: '2026-11-04T00:00:00Z' },
+      { ...base, id: b, title: 'B', folderName: 'B', coverFile: null, launchFile: 'b.exe', needsMetadata: true, dlsiteUrl: null, sourceKind: null, sourceRef: null, addedAt: '2026-11-04T00:00:00Z' },
       {
         ...base,
         id,
@@ -94,10 +94,18 @@ describe('listGames', () => {
         launchFile: 'Game.exe',
         needsMetadata: false,
         dlsiteUrl: 'https://www.dlsite.com/maniax/work/=/product_id/RJ00473501.html',
+        sourceKind: 'dlsite',
+        sourceRef: 'RJ00473501',
         uninstalled: true,
         tags: ['ADV', 'RPG'],
         addedAt: T
       }
     ])
+  })
+})
+
+describe('迁移 005', () => {
+  it('games 有 window_title，新游戏是 null', () => {
+    expect(db.prepare('SELECT window_title FROM games WHERE id = ?').pluck().get(id)).toBeNull()
   })
 })

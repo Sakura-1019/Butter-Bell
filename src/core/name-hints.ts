@@ -4,6 +4,7 @@ import { rankLaunchFiles } from './launch'
 import { normalizeForMatch, searchKeyword } from './names'
 import { extractWorkCode } from './rj'
 import { kanaVariants } from './romaji'
+import { windowTitleHint } from './window-title'
 
 export interface NameHints {
   workCode: string | null
@@ -13,12 +14,14 @@ export interface NameHints {
 const GENERIC = new Set(['game', 'games', 'data', 'www', 'bin', 'nw', 'launcher', 'start', 'play', '本体', '游戏本体', 'ゲーム'])
 const KANA = /[぀-ヿ]/
 
-export function nameHints(stem: string, paths: string[], read: (path: string) => string | undefined): NameHints {
+// windowTitle：游戏运行时记下的窗口标题（原样），清洗后和配置里读到的标题一样排
+export function nameHints(stem: string, paths: string[], read: (path: string) => string | undefined, windowTitle?: string | null): NameHints {
   const files = paths.map((p) => p.replace(/\\/g, '/'))
   const launch = rankLaunchFiles(files)
   const exe = launch.autoPick ?? launch.candidates[0]
 
-  const titles = files.flatMap((p) => engineTitle(p, read))
+  const fromWindow = windowTitle ? windowTitleHint(windowTitle) : null
+  const titles = [...(fromWindow ? [fromWindow] : []), ...files.flatMap((p) => engineTitle(p, read))]
   // DLsite 只认日文原名，所以带假名的标题排最前；汉化版改成的中文标题排在压缩包名后面
   // ponytail: 只按“有没有假名”粗分，够把日文原名提到前面
   const folders = exe ? exe.split('/').slice(0, -1) : topLevelDir(files)

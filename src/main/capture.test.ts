@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest'
 import type { CoverSource } from '../core/cover'
 import { createCapture, type Shot } from './capture'
 
-function setup(shots: Shot[], opt: { cover?: CoverSource | null; running?: () => boolean; window?: () => Promise<'none' | 'fg' | 'bg'> } = {}) {
+function setup(shots: Shot[], opt: { cover?: CoverSource | null; running?: () => boolean; window?: () => Promise<'none' | 'fg' | 'bg'>; titles?: (string | null)[] } = {}) {
   const log: string[] = []
   const saved: [number, string, CoverSource][] = []
+  const titles: [number, string][] = []
   let finds = 0
   const cap = createCapture({
     running: () => [{ gameId: 1, pids: [10] }],
@@ -14,12 +15,14 @@ function setup(shots: Shot[], opt: { cover?: CoverSource | null; running?: () =>
     window: opt.window ?? (async () => (++finds < 3 ? 'none' : 'fg')), // 第 3 次才看到窗口
     activate: async () => void log.push('activate'),
     shoot: async () => shots.shift() ?? 'blank',
+    title: async () => (opt.titles ?? []).shift() ?? null,
+    saveTitle: (id, t) => void titles.push([id, t]),
     save: async (id, bytes, src) => void saved.push([id, String(bytes), src]),
     notify: (key) => void log.push(key),
     changed: () => void log.push('changed'),
     sleep: async (ms) => void log.push(`sleep ${ms}`)
   })
-  return { cap, log, saved }
+  return { cap, log, saved, titles }
 }
 const img = (s: string) => Buffer.from(s)
 
@@ -72,5 +75,29 @@ describe('手动截图', () => {
     expect(await cap.now(1)).toBe('blank')
     expect(log.slice(0, 2)).toEqual(['activate', 'sleep 3000'])
     expect(saved).toEqual([])
+  })
+})
+
+describe('记下窗口标题（识别时当候补词）', () => {
+  it('窗口出现后等 10 秒读一次标题，原样存下', async () => {
+    const { cap, log, titles } = setup([], { titles: ['魔女の館 - WOLF RPG Editor'] })
+    await cap.recordTitle(1)
+    expect(titles).toEqual([[1, '魔女の館 - WOLF RPG Editor']])
+    expect(log).toEqual(['sleep 2000', 'sleep 2000', 'sleep 10000'])
+  })
+
+  it('清洗后没用的标题（只有引擎名、读不到）不存，免得盖掉以前存的', async () => {
+    for (const t of ['RPG Maker MZ', null]) {
+      const { cap, titles } = setup([], { titles: [t] })
+      await cap.recordTitle(1)
+      expect(titles).toEqual([])
+    }
+  })
+
+  it('没等到窗口游戏就退出了：不读', async () => {
+    let n = 0
+    const { cap, titles } = setup([], { running: () => ++n < 2, titles: ['魔女の館'] })
+    await cap.recordTitle(1)
+    expect(titles).toEqual([])
   })
 })

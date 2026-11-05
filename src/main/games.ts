@@ -14,7 +14,9 @@ export interface GameCard {
   version: string | null
   launchFile: string | null
   needsMetadata: boolean // 待补资料
-  dlsiteUrl: string | null // 资料来自 DLsite 时的作品页，详情页一键打开
+  dlsiteUrl: string | null // 信息来自 DLsite 时的作品页，详情页一键打开
+  sourceKind: 'dlsite' | 'manual' | null // 信息从哪来；null = 待补信息
+  sourceRef: string | null // dlsite：RJ 号
   circle: string | null
   playStatus: 'playing' | 'wishlist' | 'completed'
   uninstalled: boolean // ADR 0004：和游玩状态分开记
@@ -45,6 +47,8 @@ export function listGames(db: Database.Database): GameCard[] {
     launchFile: g.launch_file,
     needsMetadata: g.source_kind === null,
     dlsiteUrl: g.source_kind === 'dlsite' ? workUrl(g.source_ref) : null,
+    sourceKind: g.source_kind,
+    sourceRef: g.source_ref,
     circle: g.circle,
     playStatus: g.play_status,
     uninstalled: g.uninstalled_at !== null,

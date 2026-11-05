@@ -241,7 +241,8 @@ app.whenReady().then(() => {
         return undefined
       }
     }
-    const hints = nameHints(stem, existsSync(g.dir) ? await listFolder(g.dir) : [], read)
+    const windowTitle = db.prepare('SELECT window_title FROM games WHERE id = ?').pluck().get(g.id) as string | null
+    const hints = nameHints(stem, existsSync(g.dir) ? await listFolder(g.dir) : [], read, windowTitle)
     return { ...hints, keyword: hints.keywords[0] ?? searchKeyword(stem), folderName: basename(g.folder_name) }
   })
 
@@ -331,6 +332,8 @@ app.whenReady().then(() => {
     window: shooter.window,
     activate: shooter.activate,
     shoot: shooter.shoot,
+    title: shooter.title,
+    saveTitle: (id, title) => void db.prepare('UPDATE games SET window_title = ? WHERE id = ?').run(title, id),
     // 手动截的算用户自己选的，直接换；自动截的只在还没封面时放上
     save: async (id, bytes, src) => void (src === 'manual' ? await covers.put(id, bytes, src) : await covers.offer(id, bytes, src)),
     notify: (key) => {
@@ -382,6 +385,7 @@ app.whenReady().then(() => {
     if (row.use_locale_emulator && (!le || !existsSync(le))) throw new Error('没找到 Locale Emulator，去设置里指定 LEProc.exe')
     await runner.launch(g.id, exe, g.dir, le)
     void capture.auto(g.id).catch(() => undefined) // 没封面的游戏：截一张标题画面当临时封面
+    void capture.recordTitle(g.id).catch(() => undefined) // 窗口标题：识别信息时当候补词
   })
 
   // 详情抽屉里能改的东西

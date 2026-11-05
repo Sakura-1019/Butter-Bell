@@ -450,10 +450,6 @@ table.list { width: 100%; border-collapse: collapse; }
 .arch .act .side .linkbtn:last-child { margin-right: -8px; }
 .arch .act > .linkbtn { margin-right: -10px; padding: 5px 10px; border-radius: var(--radius-control); }
 /* 详情页“退出游戏”：运行中按钮下面单独一行，红色文字（危险操作，和“卸载”同色） */
-.d-quit { display: flex; justify-content: center; margin-top: 6px; }
-.linkbtn.danger-text { color: var(--negative); }
-.linkbtn.danger-text:hover { background: var(--negative-soft); color: var(--negative); }
-.linkbtn.danger-text[disabled] { opacity: .6; cursor: default; background: transparent; }
 
 /* 0.2.1：界面文字默认选不中，游戏名、社团、简介、路径这类内容（.sel）和输入框可以选中复制 */
 body { user-select: none; }
@@ -471,8 +467,20 @@ body { user-select: none; }
 .pbody .pname { margin-top: 6px; }
 .pbody > .input { height: 34px; font-size: 14px; width: 100%; margin-bottom: 6px; }
 
-/* 详情页“DLsite 页面”带一个小外链图标 */
-.d-edit .linkbtn svg.i { width: 13px; height: 13px; }
+/* 详情页的信息来源一行：“信息来自 DLsite · RJ…”，后面是 DLsite 页面、识别信息（还没信息时换成上面的提示框） */
+.d-info { display: flex; align-items: center; gap: 2px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--rule); font-size: 12.5px; color: var(--faint); }
+.d-info .src { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.d-info .sep { margin: 0 5px; opacity: .6; }
+.d-info .linkbtn { font-size: 12.5px; flex: none; }
+.d-info .linkbtn:last-child { margin-right: -8px; }
+.d-info .linkbtn svg.i { width: 13px; height: 13px; }
+
+/* 运行中按钮悬停：变成红色的“退出游戏” */
+.d-launch .btn.primary.running.quit { background: var(--negative); color: #fff; }
+.d-launch .btn.primary.running.quit[disabled] { opacity: .7; }
+
+/* 识别弹窗：已有信息时，搜索结果里当前用的那个作品 */
+.cand .current { display: inline-block; margin-left: 8px; padding: 0 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent-ink); font-size: 11.5px; font-weight: 500; line-height: 18px; vertical-align: 1px; }
 
 /* 待解压：进度在下载时间那一栏 */
 .arch .col.jobprog { font-size: var(--fs-small); color: var(--faint); display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }

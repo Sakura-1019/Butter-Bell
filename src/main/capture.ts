@@ -3,6 +3,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { join } from 'node:path'
 import type { CoverSource } from '../core/cover'
+import { windowTitleHint } from '../core/window-title'
 
 // 截一张的结果：图片（已转成 jpg）/ 近乎全黑或纯色 / 游戏窗口不在最前面 / 没找到窗口
 export type Shot = Buffer | 'blank' | 'background' | 'none'
@@ -15,6 +16,8 @@ interface Deps {
   window(pids: number[]): Promise<'none' | 'fg' | 'bg'> // 找到主窗口了吗，在不在最前面
   activate(pids: number[]): Promise<void> // 把游戏窗口切到最前面
   shoot(pids: number[]): Promise<Shot>
+  title(pids: number[]): Promise<string | null> // 主窗口的标题，没找到窗口时 null
+  saveTitle(gameId: number, title: string): void
   save(gameId: number, bytes: Buffer, source: CoverSource): Promise<void>
   notify(key: NotifyKey): void // Windows 系统通知：游戏窗口会盖住 Butter Bell
   changed(): void // 封面换了，界面重拉游戏列表
@@ -25,20 +28,31 @@ const TRIES = 5
 const pidsOf = (d: Deps, id: number) => d.running().find((r) => r.gameId === id)?.pids ?? []
 
 export function createCapture(d: Deps) {
+  // 等到游戏窗口出现
+  async function waitWindow(gameId: number): Promise<boolean> {
+    while (d.isRunning(gameId)) {
+      if ((await d.window(pidsOf(d, gameId))) !== 'none') return true
+      await d.sleep(2000)
+    }
+    return false
+  }
+
+  // 窗口标题当识别的候补词：每次启动都读，窗口出现后等 10 秒（过了 Now Loading）读一次。
+  // 存原样的标题，清洗在用的时候做；清洗后没用的不存，免得盖掉以前存的好标题
+  async function recordTitle(gameId: number): Promise<void> {
+    if (!(await waitWindow(gameId))) return
+    await d.sleep(10000)
+    if (!d.isRunning(gameId)) return
+    const title = await d.title(pidsOf(d, gameId))
+    if (title && windowTitleHint(title)) d.saveTitle(gameId, title)
+  }
+
   // 只对没有封面的游戏：窗口出现后第 5 秒开始，每 3 秒截一次，取第一张不是黑屏 / 纯色的，最多 5 次。
   // 游戏窗口不在最前面时（用户切走了）不截，也不算次数
   async function auto(gameId: number): Promise<void> {
     if (d.coverSource(gameId) !== null) return
     d.notify('capture.start')
-    let seen = false
-    while (d.isRunning(gameId)) {
-      if ((await d.window(pidsOf(d, gameId))) !== 'none') {
-        seen = true
-        break
-      }
-      await d.sleep(2000)
-    }
-    if (!seen) return
+    if (!(await waitWindow(gameId))) return
     await d.sleep(5000)
     let tries = 0
     while (tries < TRIES && d.isRunning(gameId)) {
@@ -68,6 +82,7 @@ export function createCapture(d: Deps) {
 
   return {
     auto,
+    recordTitle,
     notify: d.notify,
     // 全局快捷键：截正在最前面的那个游戏
     async hotkey(): Promise<void> {
@@ -114,6 +129,12 @@ public static class BBWin {
   [DllImport("user32.dll")] static extern bool BringWindowToTop(IntPtr h);
   [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
   [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, System.Text.StringBuilder s, int n);
+  public static string Title(IntPtr h) {
+    System.Text.StringBuilder s = new System.Text.StringBuilder(512);
+    GetWindowText(h, s, s.Capacity);
+    return s.ToString().Replace("\r", " ").Replace("\n", " ");
+  }
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
   [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
   [DllImport("user32.dll")] static extern bool GetClientRect(IntPtr h, out RECT r);
@@ -171,6 +192,7 @@ while ($null -ne ($line = [Console]::In.ReadLine())) {
     $h = [BBWin]::Find($set, [ref]$rect)
     if ($h -eq [IntPtr]::Zero) { Say 'none' }
     elseif ($cmd -eq 'activate') { [BBWin]::Activate($h); Say 'ok' }
+    elseif ($cmd -eq 'title') { Say ('T' + [BBWin]::Title($h)) }
     elseif (-not [BBWin]::IsForeground($h)) { Say 'bg' }
     else {
       if ($cmd -eq 'shot') { [BBWin]::Shot($rect, $file) }
@@ -235,6 +257,11 @@ export function createWindowShooter(tmpDir: string, img: ImageTools) {
       return r === 'fg' || r === 'bg' ? r : 'none'
     },
     activate: async (pids: number[]) => void (await ask('activate', pids)),
+    // 回的是 'T' + 标题；没找到窗口是 'none'
+    title: async (pids: number[]) => {
+      const r = await ask('title', pids)
+      return r.startsWith('T') ? r.slice(1) : null
+    },
     // 截到临时文件，判断能不能用，转成 jpg 读进来；临时文件不管成不成都删掉，不合格的图不留在磁盘上
     async shoot(pids: number[]): Promise<Shot> {
       const file = join(tmpDir, `butter-bell-shot-${process.pid}-${++n}.png`)
