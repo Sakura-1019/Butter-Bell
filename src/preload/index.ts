@@ -69,7 +69,7 @@ const api = {
     // title：识别页上拼好、确认过的名称
     applyDlsite: (id: number, code: string, tags: string[], replaceManual: boolean, title: string): Promise<void> =>
       ipcRenderer.invoke('games:apply-dlsite', id, code, tags, replaceManual, title),
-    applyManual: (id: number, title: string, cover: Uint8Array): Promise<void> => ipcRenderer.invoke('games:apply-manual', id, title, cover),
+    applyManual: (id: number, title: string, cover: Uint8Array | null): Promise<void> => ipcRenderer.invoke('games:apply-manual', id, title, cover),
     launch: (id: number): Promise<void> => ipcRenderer.invoke('games:launch', id),
     update: (id: number, patch: { playStatus?: GameCard['playStatus']; useLocaleEmulator?: boolean; title?: string; version?: string }): Promise<void> =>
       ipcRenderer.invoke('games:update', id, patch),

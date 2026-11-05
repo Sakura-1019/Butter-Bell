@@ -267,7 +267,7 @@ function Manual({ gameId, names, onDone }: { gameId: number; names: string[]; on
   const take = (f?: File) => f && f.type.startsWith('image/') && setFile(f)
   const save = async () => {
     try {
-      await window.api.games.applyManual(gameId, title, new Uint8Array(await file!.arrayBuffer()))
+      await window.api.games.applyManual(gameId, title, file ? new Uint8Array(await file.arrayBuffer()) : null)
       onDone()
     } catch (e) {
       setError(errorText(e))
@@ -299,7 +299,7 @@ function Manual({ gameId, names, onDone }: { gameId: number; names: string[]; on
       <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => take(e.target.files?.[0])} />
       {error && <p className="warn">{t('setup.error', { detail: error })}</p>}
       <div className="row-btns">
-        <button className="btn primary" disabled={!title.trim() || !file} onClick={save}>{t('setup.save')}</button>
+        <button className="btn primary" disabled={!title.trim()} onClick={save}>{t('setup.save')}</button>
       </div>
     </div>
   )

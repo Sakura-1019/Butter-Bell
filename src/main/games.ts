@@ -136,6 +136,9 @@ export function purge(db: Database.Database, gameId: number): string | null {
   })()
 }
 
-export function applyManual(db: Database.Database, gameId: number, title: string, coverFile: string): void {
-  db.prepare("UPDATE games SET title = ?, cover_file = ?, cover_source = 'manual', source_kind = 'manual', source_ref = NULL WHERE id = ?").run(title.trim(), coverFile, gameId)
+// coverFile 为 null：没选封面，只写名称，现在的封面和它的来源都不动（封面是可选的）
+export function applyManual(db: Database.Database, gameId: number, title: string, coverFile: string | null): void {
+  if (!title.trim()) throw new Error('名称不能是空的')
+  db.prepare("UPDATE games SET title = ?, source_kind = 'manual', source_ref = NULL WHERE id = ?").run(title.trim(), gameId)
+  if (coverFile) db.prepare("UPDATE games SET cover_file = ?, cover_source = 'manual' WHERE id = ?").run(coverFile, gameId)
 }

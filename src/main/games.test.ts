@@ -68,6 +68,22 @@ describe('applyDlsite：DLsite 详情写进游戏记录', () => {
 })
 
 describe('applyManual：手动填写', () => {
+  it('封面可以不给：只写名称和来源，现在的封面和封面来源都不动', () => {
+    db.prepare("UPDATE games SET cover_file = 'covers/shot.jpg', cover_source = 'screenshot' WHERE id = ?").run(id)
+    applyManual(db, id, '只填名字', null)
+    expect(db.prepare('SELECT title, cover_file, cover_source, source_kind FROM games WHERE id = ?').get(id)).toEqual({
+      title: '只填名字',
+      cover_file: 'covers/shot.jpg',
+      cover_source: 'screenshot',
+      source_kind: 'manual'
+    })
+    expect(listGames(db).find((g) => g.id === id)!.needsMetadata).toBe(false)
+  })
+
+  it('名称是空的抛错', () => {
+    expect(() => applyManual(db, id, '  ', null)).toThrow()
+  })
+
   it('写名称和封面，来源记成 manual', () => {
     applyManual(db, id, '  自己填的  ', 'covers/1.png')
     expect(game()).toMatchObject({ title: '自己填的', cover_file: 'covers/1.png', source_kind: 'manual', source_ref: null })

@@ -278,10 +278,11 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('games:apply-manual', async (_e, id: unknown, title: unknown, bytes: unknown) => {
     const g = gameRow(id)
-    if (typeof title !== 'string' || !title.trim() || !(bytes instanceof Uint8Array)) throw new Error('名称和封面都要有')
-    if (!imageType(bytes)) throw new Error('封面要是 jpg / png / webp 图片')
-    await covers.put(g.id, bytes, 'manual')
-    applyManual(db, g.id, title, db.prepare('SELECT cover_file FROM games WHERE id = ?').pluck().get(g.id) as string)
+    // 封面可选：没给就只写名称
+    if (typeof title !== 'string' || !title.trim()) throw new Error('名称不能是空的')
+    if (bytes != null && !(bytes instanceof Uint8Array && imageType(bytes))) throw new Error('封面要是 jpg / png / webp 图片')
+    if (bytes) await covers.put(g.id, bytes, 'manual')
+    applyManual(db, g.id, title, bytes ? (db.prepare('SELECT cover_file FROM games WHERE id = ?').pluck().get(g.id) as string) : null)
   })
 
   // 启动和计时
