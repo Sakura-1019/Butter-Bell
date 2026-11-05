@@ -154,6 +154,8 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
         <div className="d-edit">
           <button className="linkbtn" onClick={() => setRenaming(true)}>{t('drawer.rename')}</button>
           <button className="linkbtn" onClick={() => coverInput.current?.click()}>{t('drawer.changeCover')}</button>
+          {/* 已有信息时“识别信息”在这一排；还没信息时在下面的提示框里 */}
+          {!g.needsMetadata && !g.uninstalled && <button className="linkbtn" onClick={() => setModal('identify')}>{t('drawer.identify')}</button>}
           {running && !html && (
             <button className="linkbtn" disabled={countdown > 0} title={t('drawer.captureHint')} onClick={capture}>
               {countdown ? t('drawer.captureIn', { n: countdown }) : t('drawer.capture')}
@@ -173,7 +175,7 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
         </div>
       </div>
 
-      {/* 信息从哪来，和“识别信息”入口：两种情况都在这里。还没信息时是醒目的提示框，有了就收成一行小字 */}
+      {/* 信息从哪来：还没信息时是醒目的提示框（带“识别信息”）；有了就是一行小字，DLsite 页面靠右 */}
       {g.needsMetadata ? (
         !g.uninstalled && (
           <div className="note">
@@ -191,7 +193,6 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
               {t('drawer.openDlsite')}{ICONS.external}
             </button>
           )}
-          {!g.uninstalled && <button className="linkbtn" onClick={() => setModal('identify')}>{t('drawer.identify')}</button>}
         </div>
       )}
       {g.uninstalled && <div className="note"><strong>{t('drawer.goneTitle')}</strong>{t('drawer.goneHint')}</div>}
