@@ -448,7 +448,7 @@ table.list { width: 100%; border-collapse: collapse; }
 .arch .act .side { min-width: 0; width: 100%; }
 .arch .act .side-line { justify-content: flex-end; }
 .arch .act .side .linkbtn:last-child { margin-right: -8px; }
-.arch .act .side-act { margin-right: -10px; padding: 5px 10px; border-radius: var(--radius-control); }
+.arch .act > .linkbtn { margin-right: -10px; padding: 5px 10px; border-radius: var(--radius-control); }
 /* 详情页“退出游戏”：运行中按钮下面单独一行，红色文字（危险操作，和“卸载”同色） */
 .d-quit { display: flex; justify-content: center; margin-top: 6px; }
 .linkbtn.danger-text { color: var(--negative); }
