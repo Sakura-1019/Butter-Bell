@@ -5,6 +5,7 @@ import type { CommonPassword, InboxState, Settings as S, UpdateState } from '../
 import { LANGUAGES } from './i18n'
 import { ICONS } from './icons'
 import { useSize } from './Inbox'
+import PasswordInput from './PasswordInput'
 import { errorText } from './Setup'
 
 export default function Settings({ s, onChange, onInbox, update, onUpdate }: {
@@ -137,9 +138,9 @@ function Passwords() {
         </div>
       ))}
       <form className="rowline pw-add" onSubmit={(e) => (e.preventDefault(), add())}>
-        <input
+        <PasswordInput
           className="input grow"
-          type={show ? 'text' : 'password'}
+          masked={!show}
           value={draft}
           placeholder={t('settings.pwPlaceholder')}
           aria-label={t('settings.pwPlaceholder')}

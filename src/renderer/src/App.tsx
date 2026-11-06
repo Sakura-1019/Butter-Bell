@@ -188,7 +188,7 @@ export default function App() {
             </div>
           )}
           <button
-            className={privacy ? 'btn icon on' : 'btn icon ghost'}
+            className={privacy ? 'btn icon privacy-btn on' : 'btn icon privacy-btn ghost'}
             aria-pressed={privacy}
             aria-label={privacy ? t('library.privacyOn') : t('library.privacy')}
             title={t('library.privacyHint')}

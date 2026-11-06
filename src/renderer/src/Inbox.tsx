@@ -5,6 +5,7 @@ import type { InboxEntry, InboxState, Job, PostExtractAction } from '../../prelo
 import { downloadedLabel, filterInbox, sortInbox, type InboxSort, type InboxSortKey } from '../../core/inbox-view'
 import { ICONS } from './icons'
 import Modal from './Modal'
+import PasswordInput from './PasswordInput'
 
 type Archive = Extract<InboxEntry, { kind: 'archive' }>
 type Folder = Extract<InboxEntry, { kind: 'folder' }>
@@ -417,7 +418,7 @@ function ExtractDialog({ unit, onClose }: { unit: Archive | Group; onClose: () =
       <div className="xform">
         <label className="field">
           <span>{t('inbox.confirm.password')}</span>
-          <input className="input" type="password" value={password} placeholder={t('inbox.confirm.passwordHint')} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && go()} />
+          <PasswordInput value={password} placeholder={t('inbox.confirm.passwordHint')} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && go()} />
         </label>
         {password && (
           <label className="remember">
@@ -616,9 +617,7 @@ function PasswordRow({ job }: { job: Job }) {
         <span className="warn">{t('extract.fail.wrong-password')}</span>
       </div>
       <div className="pwrow">
-        <input
-          className="input"
-          type="password"
+        <PasswordInput
           value={pw}
           placeholder={t('extract.pwPlaceholder')}
           aria-label={t('extract.pwPlaceholder')}
