@@ -28,6 +28,7 @@ export type LaunchOptions = LaunchRanking & { current: string | null }
 export type SettingKey = 'post_extract_action' | 'privacy_mode' | 'privacy_on_start' | 'check_updates' | 'theme' | 'locale_emulator_path' | 'language' | 'inbox_sort' | 'capture_hotkey'
 export interface UpdateState {
   configured: boolean // package.json 里写了仓库；没写就不检查
+  repoUrl: string | null // 仓库页面，设置页“更新”一节的链接
   current: string
   latest: Release | null // 比当前新的正式版
   dismissed: string | null // 侧栏上点了“×”的版本
@@ -104,7 +105,8 @@ const api = {
     get: (): Promise<UpdateState> => ipcRenderer.invoke('update:get'),
     check: (): Promise<UpdateState> => ipcRenderer.invoke('update:check'),
     dismiss: (): Promise<UpdateState> => ipcRenderer.invoke('update:dismiss'),
-    open: (): Promise<void> => ipcRenderer.invoke('update:open')
+    open: (): Promise<void> => ipcRenderer.invoke('update:open'),
+    openRepo: (): Promise<void> => ipcRenderer.invoke('update:open-repo')
   },
   dlsite: {
     search: (keyword: string): Promise<Candidate[]> => ipcRenderer.invoke('dlsite:search', keyword),

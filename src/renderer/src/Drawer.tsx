@@ -39,7 +39,8 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
   const [modal, setModal] = useState<'identify' | 'launch' | null>(null)
   const [launchOpts, setLaunchOpts] = useState<LaunchOptions>()
   const [addingTag, setAddingTag] = useState(false)
-  const [renaming, setRenaming] = useState(false)
+  const [draftTitle, setDraftTitle] = useState<string | null>(null) // null = 没在改名称
+  const renaming = draftTitle !== null
   const [editingVersion, setEditingVersion] = useState(false)
   const [countdown, setCountdown] = useState(0) // “截取当前画面”的倒数
   // 退出游戏：closing = 已经发了关闭，等游戏退出（runner 看到进程没了，running 变空才回到 idle）；stuck = 5 秒没关掉
@@ -78,6 +79,24 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
   useEffect(() => {
     if (!g.uninstalled) window.api.games.launchOptions(g.id).then(setLaunchOpts, () => undefined)
   }, [g.id, g.uninstalled, g.launchFile])
+
+  // 改名称时 Esc 只取消改名，不关详情页；焦点不在输入框里也一样。关详情页时这个状态跟着没了，也就是放弃
+  useEffect(() => {
+    if (!renaming) return
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || document.querySelector('.modal-wrap')) return
+      e.stopPropagation()
+      setDraftTitle(null)
+    }
+    window.addEventListener('keydown', esc, true)
+    return () => window.removeEventListener('keydown', esc, true)
+  }, [renaming])
+  const saveTitle = () => {
+    if (!draftTitle?.trim()) return
+    const title = draftTitle
+    setDraftTitle(null)
+    act(() => window.api.games.update(g.id, { title }))
+  }
 
   const [elapsed, runSeconds] = useElapsed(running?.startedAt)
   // 截取当前画面：主进程把游戏窗口切到前面、等 3 秒再截；这边同时倒数
@@ -134,25 +153,22 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
         {renaming ? (
           <input
             className="input title-input"
-            defaultValue={g.title}
+            value={draftTitle}
             autoFocus
             aria-label={t('drawer.rename')}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') e.stopPropagation(), setRenaming(false)
-              if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                const title = e.currentTarget.value
-                setRenaming(false)
-                act(() => window.api.games.update(g.id, { title }))
-              }
-            }}
-            onBlur={() => setRenaming(false)}
+            onChange={(e) => setDraftTitle(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && saveTitle()}
           />
         ) : (
-          <h2 className="sel" title={t('drawer.rename')} onDoubleClick={() => setRenaming(true)}>{g.title}</h2>
+          <h2 className="sel">{g.title}</h2>
         )}
         <div className="maker sel">{g.circle || t('library.circleUnknown')}</div>
         <div className="d-edit">
-          <button className="linkbtn" onClick={() => setRenaming(true)}>{t('drawer.rename')}</button>
+          {renaming ? (
+            <button className="linkbtn save" disabled={!draftTitle.trim()} onClick={saveTitle}>{t('drawer.saveName')}</button>
+          ) : (
+            <button className="linkbtn" onClick={() => setDraftTitle(g.title)}>{t('drawer.rename')}</button>
+          )}
           <button className="linkbtn" onClick={() => coverInput.current?.click()}>{t('drawer.changeCover')}</button>
           {/* 已有信息时“识别信息”在这一排；还没信息时在下面的提示框里 */}
           {!g.needsMetadata && !g.uninstalled && <button className="linkbtn" onClick={() => setModal('identify')}>{t('drawer.identify')}</button>}
@@ -217,7 +233,7 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
 
       <div className="d-sec">
         <h3>{t('drawer.status')}</h3>
-        <div className="seg" role="radiogroup" aria-label={t('drawer.status')}>
+        <div className="seg status-seg" role="radiogroup" aria-label={t('drawer.status')} style={{ '--i': STATUSES.indexOf(g.playStatus) } as React.CSSProperties}>
           {STATUSES.map((s) => (
             <button key={s} role="radio" aria-checked={g.playStatus === s} aria-pressed={g.playStatus === s} onClick={() => act(() => window.api.games.update(g.id, { playStatus: s }))}>
               {t(`status.${s}`)}

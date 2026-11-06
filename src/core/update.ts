@@ -9,6 +9,8 @@ export function parseRepo(repository: unknown): string | null {
   return m ? `${m[1]}/${m[2]}` : null
 }
 
+export const repoUrl = (repo: string) => `https://github.com/${repo}`
+
 export const releasesApi = (repo: string) => `https://api.github.com/repos/${repo}/releases/latest`
 
 const parts = (v: string) => v.replace(/^v/i, '').match(/^\d+(?:\.\d+)*/)?.[0].split('.').map(Number) ?? null

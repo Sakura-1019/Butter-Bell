@@ -158,12 +158,12 @@
       "dlsite": "DLsite 搜索",
       "manual": "手动填写"
     },
-    "keyword": "搜索关键词",
+    "keyword": "搜索关键词或 RJ 号",
     "search": "搜索",
     "alsoTry": "也可以试：",
     "alsoUse": "也可以用：",
     "searching": "正在搜索…",
-    "noResults": "没搜到。换个关键词试试，DLsite 用日文原名搜最准。",
+    "noResults": "没搜到。换个关键词试试，DLsite 用日文原名或 RJ 号搜最准。",
     "notFound": "DLsite 上查不到这个作品的详情，换一个候选或手动填写。",
     "error": "出错了：{{detail}}",
     "genresHint": "DLsite 类型词，勾上的会加为标签：",
@@ -233,6 +233,7 @@
     "openDlsite": "DLsite 页面",
     "changeCover": "换封面",
     "rename": "改名称",
+    "saveName": "保存",
     "noCandidates": "游戏文件夹里没找到 exe 或 .html",
     "noTiming": "不计时",
     "htmlHint": "这是网页游戏，会用默认浏览器打开。程序看不到浏览器里的游戏什么时候关，所以只记“上次游玩”，不计游戏时长。",
@@ -330,6 +331,8 @@
     "dismiss": "这个版本不再提示",
     "notConfigured": "这个版本没有设置更新地址，不检查更新",
     "onStart": "启动时检查更新",
-    "onStartHint": "只向 GitHub 问一次最新的版本号，不上传库里的任何信息，也不会自动下载"
+    "onStartHint": "只向 GitHub 问一次最新的版本号，不上传库里的任何信息，也不会自动下载",
+    "github": "GitHub 项目主页",
+    "openGithub": "打开"
   }
 }

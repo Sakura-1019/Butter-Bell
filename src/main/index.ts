@@ -27,7 +27,7 @@ import { rankCandidates, type ProductDetail } from '../core/dlsite'
 import { createDlsiteClient } from '../core/dlsite-http'
 import type { PostExtractAction } from './extract'
 import { getSetting, now, setSetting } from './settings'
-import { isNewer, latestRelease, parseRepo, releasesApi, type Release } from '../core/update'
+import { isNewer, latestRelease, parseRepo, releasesApi, repoUrl, type Release } from '../core/update'
 import pkg from '../../package.json'
 
 // 绿色版：数据放在程序旁边。electron-builder 的单文件绿色版运行时会解压到临时目录，
@@ -521,6 +521,7 @@ app.whenReady().then(() => {
   let latest: Release | null = null
   const update = () => ({
     configured: !!repo,
+    repoUrl: repo && repoUrl(repo),
     current: app.getVersion(),
     latest: latest && isNewer(latest.version, app.getVersion()) ? latest : null,
     dismissed: getSetting(db, 'dismissed_update') as string | null
@@ -537,6 +538,8 @@ app.whenReady().then(() => {
   // 侧栏的“×”：这个版本不再提示，出了更新的才再提示
   ipcMain.handle('update:dismiss', () => (latest && setSetting(db, 'dismissed_update', latest.version), update()))
   ipcMain.handle('update:open', () => latest && shell.openExternal(latest.url))
+  // 只打开 package.json 里写的仓库，不接受界面传网址
+  ipcMain.handle('update:open-repo', () => repo && shell.openExternal(repoUrl(repo)))
 
   createWindow()
   // 还没封面（或只有截图）的游戏，在文件夹里再找一遍；后台慢慢来，不挡启动

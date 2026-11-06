@@ -7,9 +7,10 @@ import { recentlyPlayed, search, tagCounts, withTag } from '../../core/library'
 import { DEFAULT_SORT } from '../../core/inbox-view'
 import Drawer from './Drawer'
 import FirstRun, { needsFirstRun } from './FirstRun'
-import { Bell, ICONS } from './icons'
+import { ICONS } from './icons'
 import Inbox, { unitsOf } from './Inbox'
 import Library from './Library'
+import Lockup from './Lockup'
 import Settings from './Settings'
 import Setup from './Setup'
 
@@ -112,7 +113,7 @@ export default function App() {
     <div className={privacy ? 'app privacy' : 'app'}>
       <div className="titlebar" />
       <aside className="sidebar">
-        <div className="brand"><Bell /><span>Butter Bell</span></div>
+        <div className="brand"><Lockup /></div>
         {nav('all')}
         {nav('inbox', inboxN)}
         {nav('recent')}

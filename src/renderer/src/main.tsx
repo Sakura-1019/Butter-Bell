@@ -4,6 +4,9 @@ import '@fontsource-variable/inter'
 import './styles.css'
 import './i18n'
 import App from './App'
+import { autoHideScrollbars } from './scrollbars'
+
+autoHideScrollbars()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -94,6 +94,12 @@ function Updates({ u, onUpdate, enabled, onEnabled }: { u: UpdateState; onUpdate
         <div className="lbl">{t('update.onStart')}<small>{t('update.onStartHint')}</small></div>
         <button className="switch" role="switch" disabled={!u.configured} aria-checked={u.configured && enabled} aria-label={t('update.onStart')} onClick={() => onEnabled(!enabled)} />
       </div>
+      {u.repoUrl && (
+        <div className="rowline">
+          <div className="lbl">{t('update.github')}<small className="sel">{u.repoUrl.replace('https://', '')}</small></div>
+          <button className="linkbtn" onClick={() => window.api.update.openRepo()}>{t('update.openGithub')}{ICONS.external}</button>
+        </div>
+      )}
     </section>
   )
 }

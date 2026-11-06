@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isNewer, latestRelease, parseRepo, releasesApi } from './update'
+import { isNewer, latestRelease, parseRepo, releasesApi, repoUrl } from './update'
 
 describe('parseRepo', () => {
   it.each([
@@ -61,4 +61,8 @@ describe('latestRelease', () => {
   ])('%s → null', (_name, input) => {
     expect(latestRelease(input, 'owner/repo')).toBeNull()
   })
+})
+
+describe('repoUrl', () => {
+  it('拼出仓库页面', () => expect(repoUrl('owner/repo')).toBe('https://github.com/owner/repo'))
 })
