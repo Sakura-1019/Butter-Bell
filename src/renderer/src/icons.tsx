@@ -25,6 +25,7 @@ export const ICONS = {
   x: icon(<path d="M18 6 6 18M6 6l12 12" />),
   plus: icon(<path d="M12 5v14M5 12h14" />),
   external: icon(<><path d="M14 4h6v6" /><path d="m20 4-9 9" /><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" /></>),
+  crown: icon(<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" />),
   search: icon(<><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>)
 }
 

@@ -8,6 +8,13 @@ import { Identify, LaunchStep, errorText } from './Setup'
 
 const STATUSES = ['playing', 'wishlist', 'completed'] as const
 
+// 选中“通关”时炸开的星点：每颗飞出去的方向和距离
+const SPARKS = Array.from({ length: 10 }, (_, i) => {
+  const angle = (i / 10) * Math.PI * 2 + (i % 2) * 0.3
+  const r = 26 + (i % 3) * 12
+  return { '--x': `${Math.round(Math.cos(angle) * r * 1.5)}px`, '--y': `${Math.round(Math.sin(angle) * r * 0.75)}px` } as React.CSSProperties
+})
+
 interface Props {
   game: GameCard | undefined // undefined = 关着
   running: Running | undefined
@@ -39,6 +46,7 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
   const [modal, setModal] = useState<'identify' | 'launch' | null>(null)
   const [launchOpts, setLaunchOpts] = useState<LaunchOptions>()
   const [addingTag, setAddingTag] = useState(false)
+  const [sparks, setSparks] = useState(false) // 刚点了“通关”，放一次星点；打开已通关的游戏时不放
   const [draftTitle, setDraftTitle] = useState<string | null>(null) // null = 没在改名称
   const renaming = draftTitle !== null
   const [editingVersion, setEditingVersion] = useState(false)
@@ -233,10 +241,21 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
 
       <div className="d-sec">
         <h3>{t('drawer.status')}</h3>
-        <div className="seg status-seg" role="radiogroup" aria-label={t('drawer.status')} style={{ '--i': STATUSES.indexOf(g.playStatus) } as React.CSSProperties}>
+        <div className={g.playStatus === 'completed' ? 'seg status-seg done' : 'seg status-seg'} role="radiogroup" aria-label={t('drawer.status')} style={{ '--i': STATUSES.indexOf(g.playStatus) } as React.CSSProperties}>
           {STATUSES.map((s) => (
-            <button key={s} role="radio" aria-checked={g.playStatus === s} aria-pressed={g.playStatus === s} onClick={() => act(() => window.api.games.update(g.id, { playStatus: s }))}>
+            <button
+              key={s}
+              role="radio"
+              aria-checked={g.playStatus === s}
+              aria-pressed={g.playStatus === s}
+              onClick={() => {
+                if (g.playStatus !== s) setSparks(s === 'completed')
+                act(() => window.api.games.update(g.id, { playStatus: s }))
+              }}
+            >
+              {s === 'completed' && g.playStatus === s && ICONS.crown}
               {t(`status.${s}`)}
+              {s === 'completed' && sparks && SPARKS.map((style, i) => <i key={i} className="spark" style={style} onAnimationEnd={() => setSparks(false)} />)}
             </button>
           ))}
         </div>
