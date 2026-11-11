@@ -33,6 +33,8 @@ CREATE TABLE games (
   version             TEXT,                          -- 迁移 004：版本号，先从压缩包名取，取不到用文件夹名；接回新版本时更新
   version_manual      INTEGER NOT NULL DEFAULT 0,    -- 迁移 004：用户在详情页改过版本号，以后不再自动覆盖
   cover_source        TEXT CHECK (cover_source IN ('manual', 'dlsite', 'folder', 'rpgmaker', 'screenshot')),  -- 迁移 004：封面来源，高的自动替换低的，manual（含手动截图）永不被自动替换
+  favorite            INTEGER NOT NULL DEFAULT 0,    -- 迁移 006：收藏
+  recent_extract_at   TEXT,                          -- 迁移 006：在游戏库“最近解压”里的时间（新解压、加入现成文件夹、接回）；启动一次或清空后是 NULL
   added_at            TEXT NOT NULL
 );
 -- 同一时刻一个游戏文件夹只属于一个没卸载的游戏
@@ -139,6 +141,9 @@ PRAGMA user_version = 1;
 | `theme` | `"system"` / `"light"` / `"dark"` | 默认 `system` |
 | `language` | `"zh-CN"` … | 界面语言 |
 | `inbox_sort` | `{ "key", "desc" }`：key 是 `modified` / `name` / `size` / `added`，desc 是 true / false | 待解压的排序，默认下载时间、新的在前 |
+| `my_tags` | 字符串数组 / 不存在 | 我的标签；不存在时用内置的人气分类（`src/core/genres.json` 的 `popular`） |
+| `nav_order` | 六个页面名的数组 | 左侧导航的顺序，长按拖动后保存；默认 `recent, library, favorites, inbox, completed, uninstalled` |
+| `library_sort` | `{ "key", "desc" }`：key 是 `added` / `lastPlayed` / `title` / `playtime` | 游戏库、收藏、已通关的排序，默认加入时间、新的在前 |
 | `capture_hotkey` | Electron 快捷键写法 / `false` | 手动截图的全局快捷键，默认 `CommandOrControl+Alt+F12`；`false` = 关掉；只在有游戏运行时注册 |
 
 ## 常见操作在表上怎么体现
@@ -150,7 +155,7 @@ PRAGMA user_version = 1;
 - **卸载**：游戏文件夹进回收站，写 `uninstalled_at`；它的压缩包 `state` 改回 `inbox`（`game_id` 保留），这样重新解压就能接回。其余不动。
 - **接回**：解压一个 `game_id` 指向已卸载游戏的压缩包时，清掉 `uninstalled_at`，必要时更新 `folder_name`。原来的启动文件在新文件夹里还在就接着用。现成文件夹的名字和某个已卸载游戏的 `folder_name` 一样时，扫描游戏目录时自动接回（不进收件箱），它的压缩包回到 `extracted`。
 - **彻底移除记录**：只对已卸载的游戏。删 `games` 那一行，没人用的标签一起删；会话和标签关联跟着删，压缩包的 `game_id` 变 NULL。
-- **从 DLsite 选定候选**：写 `original_title`、`circle`、`description`、`source_kind = 'dlsite'`、`source_ref = RJ 号`；封面下载到 `covers/`；名称只在还是文件夹名时才覆盖。DLsite 类型词只在选候选的界面里列出，勾上的才写进 `tags`，不另存。
+- **从 DLsite 选定候选**：写 `original_title`、`circle`、`description`、`source_kind = 'dlsite'`、`source_ref = RJ 号`；封面下载到 `covers/`；名称只在还是文件夹名时才覆盖。DLsite 类型词只在选候选的界面里列出（按 id 换成标签库的中文名，R-18G 不列；属于我的标签的默认勾上），勾上的才写进 `tags`，不另存。迁移 006 把以前存的日文类型词换成中文名。
 - **游玩时长 / 上次游玩**：`SUM(seconds)` / `MAX(started_at)`。
 - **已有游戏的新版本**：第一版当作一个新游戏，不做关联（第二版和系列作合并一起考虑）。0.2.0 起，接回时（同一个压缩包记录，或同名现成文件夹）`version` 跟着更新，`version_manual = 1` 的除外。
 - **封面优先级**（0.2.0）：手选 > DLsite > 游戏目录里的图片 > RPG Maker 标题画面 > 自动截图。入库、接回、程序启动时在游戏文件夹里找；没封面的游戏启动后自动截图。被替换的封面文件删掉。
