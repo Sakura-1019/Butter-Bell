@@ -25,9 +25,11 @@ export interface GameCard {
   playSeconds: number // 游玩时长：只算已结束的会话，正在运行的那段界面按开始时间自己加
   lastPlayedAt: string | null // 上次游玩：最后一次会话的开始时间
   addedAt: string
+  favorite: boolean
+  recentExtractAt: string | null // 在游戏库“最近解压”分组里：新解压、加入现成文件夹、接回的时间；启动一次或清空后是 null
 }
 
-// 已卸载的也列出来：记录还在，书架上单独一排
+// 已卸载的也列出来：记录还在，只在“已卸载”页显示（ADR 0004）
 export function listGames(db: Database.Database): GameCard[] {
   const rows = db
     .prepare(
@@ -56,7 +58,9 @@ export function listGames(db: Database.Database): GameCard[] {
     tags: JSON.parse(g.tag_list),
     playSeconds: g.play_seconds,
     lastPlayedAt: g.last_played,
-    addedAt: g.added_at
+    addedAt: g.added_at,
+    favorite: g.favorite === 1,
+    recentExtractAt: g.recent_extract_at
   }))
 }
 

@@ -361,7 +361,7 @@ export default function Inbox({ state, onChange, jobs, onAdded, query, onClearQu
 }
 
 // 右键菜单：点外面、按 Esc、滚动、窗口失焦都关掉；靠近窗口边缘时往里挪
-function ContextMenu({ x, y, onClose, children }: { x: number; y: number; onClose: () => void; children: React.ReactNode }) {
+export function ContextMenu({ x, y, onClose, children }: { x: number; y: number; onClose: () => void; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x, y })
   useEffect(() => {
@@ -667,7 +667,7 @@ function PostActionDialog({ dir, onCancel, onGo }: { dir: string; onCancel: () =
 }
 
 // 正序 / 倒序：上下两支半箭头（斜杠朝外、拉长，免得像数字 1），现在用的方向亮，另一支淡
-function SortIcon({ desc }: { desc: boolean }) {
+export function SortIcon({ desc }: { desc: boolean }) {
   return (
     <svg className="i sorti" viewBox="0 0 24 24" aria-hidden="true">
       <path className={desc ? 'off' : undefined} d="M8 20V4L3 9" />

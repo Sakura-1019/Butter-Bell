@@ -5,11 +5,16 @@ const icon = (d: ReactNode) => (
   <svg className="i" viewBox="0 0 24 24" aria-hidden="true">{d}</svg>
 )
 export const ICONS = {
-  all: icon(<><rect x="2" y="6" width="20" height="12" rx="6" /><path d="M6 12h4M8 10v4" /><circle cx="15.5" cy="11" r=".6" fill="currentColor" /><circle cx="17.5" cy="13" r=".6" fill="currentColor" /></>),
+  library: icon(<><rect x="2" y="6" width="20" height="12" rx="6" /><path d="M6 12h4M8 10v4" /><circle cx="15.5" cy="11" r=".6" fill="currentColor" /><circle cx="17.5" cy="13" r=".6" fill="currentColor" /></>),
   inbox: icon(<><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></>),
   recent: icon(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
   settings: icon(<><path d="M20 7h-9M14 17H5" /><circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" /></>),
   check: icon(<path d="M20 6 9 17l-5-5" />),
+  favorites: icon(<path d="m12 3.6 2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" />),
+  star: icon(<path d="m12 3.6 2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" />),
+  completed: icon(<><circle cx="12" cy="12" r="9" /><path d="m8.5 12.2 2.4 2.4 4.6-5" /></>),
+  uninstalled: icon(<><path d="M3 7h18v3H3zM5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9M10 14h4" /></>),
+  filter: icon(<path d="M4 6h16M7 12h10M10 18h4" />),
   archive: icon(<><rect x="2.5" y="3.5" width="19" height="5" rx="1" /><path d="M4 8.5V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8.5M10 12.5h4" /></>),
   layers: icon(<><path d="m12 2.5 9.5 5-9.5 5-9.5-5z" /><path d="m2.5 12 9.5 5 9.5-5" /><path d="m2.5 16.5 9.5 5 9.5-5" /></>),
   chevDown: icon(<path d="m6 9 6 6 6-6" />),

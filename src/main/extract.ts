@@ -132,6 +132,7 @@ export function addGame(db: Database.Database, g: NewGame, now: string): number 
       "UPDATE archives SET state = 'extracted', game_id = ?, current_dir = ?, subfolder = ?, extracted_at = ?, needs_password = 0, last_error = NULL WHERE id = ?"
     )
     for (const m of g.members) set.run(id, m.currentDir, m.subfolder, now, m.id)
+    db.prepare('UPDATE games SET recent_extract_at = ? WHERE id = ?').run(now, id) // 游戏库的“最近解压”
     return id
   })()
 }

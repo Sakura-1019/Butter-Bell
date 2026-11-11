@@ -1,40 +1,82 @@
 import { describe, expect, it } from 'vitest'
-import { formatPlaytime, recentlyPlayed, search, shelves, tagCounts, withTag } from './library'
+import { applyFilter, countWithTag, formatPlaytime, hasStatusFilter, pageGames, recentGroups, search, sortGames, splitRecentExtract, usedTags } from './library'
 
-const g = (id: number, o: Partial<{ tags: string[]; playStatus: 'playing' | 'wishlist' | 'completed'; uninstalled: boolean; lastPlayedAt: string | null }> = {}) => ({
+type Status = 'playing' | 'wishlist' | 'completed'
+type Opts = { title: string; tags: string[]; playStatus: Status; uninstalled: boolean; favorite: boolean; lastPlayedAt: string | null; addedAt: string; playSeconds: number; recentExtractAt: string | null }
+const g = (id: number, o: Partial<Opts> = {}) => ({
   id,
-  tags: [],
-  playStatus: 'wishlist' as const,
+  title: String(id),
+  tags: [] as string[],
+  playStatus: 'wishlist' as Status,
   uninstalled: false,
-  lastPlayedAt: null,
+  favorite: false,
+  lastPlayedAt: null as string | null,
+  addedAt: '2026-01-01',
+  playSeconds: 0,
+  recentExtractAt: null as string | null,
   ...o
 })
 
-describe('标签筛选', () => {
-  const games = [g(1, { tags: ['RPG', '中文'] }), g(2, { tags: ['rpg'] }), g(3, { tags: ['ADV'] }), g(4, { tags: ['RPG'], uninstalled: true })]
-  it('侧栏的标签和数量：按名字排，已卸载的也算', () => {
-    expect(tagCounts(games)).toEqual([['ADV', 1], ['RPG', 3], ['中文', 1]])
+describe('各页面放哪些游戏', () => {
+  const games = [
+    g(1, { playStatus: 'completed', favorite: true, lastPlayedAt: '2026-11-01T00:00:00Z' }),
+    g(2, { playStatus: 'completed', favorite: true, uninstalled: true, lastPlayedAt: '2026-11-05T00:00:00Z' }),
+    g(3, { playStatus: 'playing', lastPlayedAt: '2026-11-03T00:00:00Z' }),
+    g(4)
+  ]
+  const ids = (p: Parameters<typeof pageGames>[1]) => pageGames(games, p).map((x) => x.id)
+  it('已卸载的只在已卸载页', () => {
+    expect(ids('library')).toEqual([1, 3, 4])
+    expect(ids('completed')).toEqual([1])
+    expect(ids('favorites')).toEqual([1])
+    expect(ids('uninstalled')).toEqual([2])
   })
-  it('按标签筛，不分大小写', () => {
-    expect(withTag(games, 'rpg').map((x) => x.id)).toEqual([1, 2, 4])
+  it('最近游玩：只有玩过的，按上次游玩倒序', () => {
+    expect(ids('recent')).toEqual([3, 1])
+  })
+  it('能按状态筛的只有游戏库和收藏', () => {
+    expect((['library', 'favorites', 'completed', 'recent'] as const).map(hasStatusFilter)).toEqual([true, true, false, false])
   })
 })
 
-describe('书架：按状态分组', () => {
-  it('在玩 / 想玩 / 通关 / 已卸载，已卸载的只出现在已卸载那一排，空的排不显示', () => {
-    const games = [g(1, { playStatus: 'completed' }), g(2, { playStatus: 'completed', uninstalled: true }), g(3, { playStatus: 'playing' })]
-    expect(shelves(games).map(([k, l]) => [k, l.map((x) => x.id)])).toEqual([
-      ['playing', [3]],
-      ['completed', [1]],
-      ['uninstalled', [2]]
-    ])
+describe('筛选', () => {
+  const games = [g(1, { tags: ['RPG', '治愈'], playStatus: 'completed' }), g(2, { tags: ['rpg'] }), g(3, { tags: ['治愈'], playStatus: 'completed' })]
+  it('状态加标签，标签之间是“且”，不分大小写', () => {
+    expect(applyFilter(games, { status: 'completed', tags: ['治愈'] }).map((x) => x.id)).toEqual([1, 3])
+    expect(applyFilter(games, { status: null, tags: ['rpg', '治愈'] }).map((x) => x.id)).toEqual([1])
+  })
+  it('再加一个标签还剩几个', () => {
+    expect(countWithTag(games, { status: 'completed', tags: [] }, 'RPG')).toBe(1)
+  })
+  it('筛选面板只列“我的标签”里有游戏在用的，按游戏数从多到少', () => {
+    expect(usedTags(games, ['空的', 'RPG', '治愈'])).toEqual(['RPG', '治愈'])
+    expect(usedTags([g(1, { tags: ['治愈'] })], ['空的', 'RPG', '治愈'])).toEqual(['治愈'])
   })
 })
 
-describe('最近游玩', () => {
-  it('按上次游玩倒序，没玩过的不算', () => {
-    const games = [g(1, { lastPlayedAt: '2026-11-01T00:00:00Z' }), g(2), g(3, { lastPlayedAt: '2026-11-03T00:00:00Z' })]
-    expect(recentlyPlayed(games).map((x) => x.id)).toEqual([3, 1])
+describe('排序', () => {
+  const games = [g(1, { title: 'b', addedAt: '2026-01-02', playSeconds: 5 }), g(2, { title: 'a', addedAt: '2026-01-03', playSeconds: 1 }), g(3, { title: 'c', addedAt: '2026-01-01', playSeconds: 9 })]
+  const ids = (s: Parameters<typeof sortGames>[1]) => sortGames(games, s).map((x) => x.id)
+  it('加入时间、名称、时长，正反两个方向', () => {
+    expect(ids({ key: 'added', desc: true })).toEqual([2, 1, 3])
+    expect(ids({ key: 'title', desc: false })).toEqual([2, 1, 3])
+    expect(ids({ key: 'playtime', desc: true })).toEqual([3, 1, 2])
+  })
+})
+
+describe('最近解压', () => {
+  it('和其余游戏分开，不重复，按进库时间新的在前', () => {
+    const games = [g(1), g(2, { recentExtractAt: '2026-11-01T00:00:00Z' }), g(3, { recentExtractAt: '2026-11-02T00:00:00Z' })]
+    const [recent, rest] = splitRecentExtract(games)
+    expect([recent.map((x) => x.id), rest.map((x) => x.id)]).toEqual([[3, 2], [1]])
+  })
+})
+
+describe('最近游玩的时间分组', () => {
+  it('3 天内 / 7 天内 / 30 天内 / 更早，空的组不要', () => {
+    const now = new Date('2026-11-11T12:00:00Z')
+    const games = [g(1, { lastPlayedAt: '2026-11-10T12:00:00Z' }), g(2, { lastPlayedAt: '2026-11-08T11:00:00Z' }), g(3, { lastPlayedAt: '2026-09-01T00:00:00Z' })]
+    expect(recentGroups(games, now).map(([k, l]) => [k, l.map((x) => x.id)])).toEqual([['d3', [1]], ['d7', [2]], ['older', [3]]])
   })
 })
 

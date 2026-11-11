@@ -75,4 +75,14 @@ describe('addFolder', () => {
     addFolder(db, { folderName: 'Foo', launchFile: 'new.exe', launchCandidates: ['new.exe'] }, T)
     expect(game(id).launchFile).toBe('new.exe')
   })
+
+  it('新加入和接回的都进“最近解压”', () => {
+    const a = addFolder(db, { folderName: 'A', launchFile: null, launchCandidates: [] }, T)
+    expect(game(a).recentExtractAt).toBe(T)
+    const id = addGame(db, { folderName: 'Foo', launchFile: null, members: [] }, T)
+    db.prepare('UPDATE games SET recent_extract_at = NULL').run()
+    uninstall(db, id, T)
+    addFolder(db, { folderName: 'Foo', launchFile: null, launchCandidates: [] }, '2026-11-09T00:00:00Z')
+    expect(game(id).recentExtractAt).toBe('2026-11-09T00:00:00Z')
+  })
 })

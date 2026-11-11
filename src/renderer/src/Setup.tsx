@@ -174,7 +174,7 @@ export function Identify({ gameId, onDone }: { gameId: number; onDone: () => voi
   )
 }
 
-// 点选候选后的详情：DLsite 类型词列成可勾选的小标签，默认都不勾
+// 点选候选后的详情：DLsite 类型词列成可勾选的小标签，属于“我的标签”的默认勾上（R-18G 在解析时已经去掉）
 function Picked({ gameId, detail, onBack, onDone }: { gameId: number; detail: ProductDetail; onBack: () => void; onDone: () => void }) {
   const { t } = useTranslation()
   const [tags, setTags] = useState(new Set<string>())
@@ -186,6 +186,10 @@ function Picked({ gameId, detail, onBack, onDone }: { gameId: number; detail: Pr
   const [segs, setSegs] = useState(() => splitTitle(detail.title))
   const [title, setTitle] = useState(() => joinSegments(splitTitle(detail.title)))
   useEffect(() => {
+    window.api.settings.get().then((s) => {
+      const mine = new Set(s.myTags.map((x) => x.toLowerCase()))
+      setTags(new Set(detail.genres.filter((x) => mine.has(x.toLowerCase()))))
+    })
     window.api.games.list().then((gs) => {
       const g = gs.find((x) => x.id === gameId)
       setManualCover(g?.coverSource === 'manual')
@@ -193,7 +197,7 @@ function Picked({ gameId, detail, onBack, onDone }: { gameId: number; detail: Pr
       const folder = g?.folderName.split(/[\\/]/).pop()
       if (g && g.title !== folder && g.title !== detail.title) setTitle(g.title)
     })
-  }, [gameId, detail.title])
+  }, [gameId, detail.title, detail.genres])
   const toggleSeg = (i: number) => {
     const next = segs.map((s, j): Segment => (j === i ? { ...s, on: !s.on } : s))
     setSegs(next)

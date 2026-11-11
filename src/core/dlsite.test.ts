@@ -44,7 +44,7 @@ describe('parseProduct', () => {
       circle: '夢見工房',
       releaseDate: '2025-06-29',
       coverUrl: 'https://img.dlsite.jp/modpub/images2/work/doujin/RJ00399000/RJ00398036_img_main.jpg',
-      genres: ['ファンタジー', '動物', 'ほのぼの', '推理', 'ギャンブル', '癒し', '日常/生活', '学園もの'],
+      genres: ['奇幻', '動物', '温馨', '推理', 'ギャンブル', '治愈', '日常/生活', '学園もの'], // 快照里有的 id 换成中文名，没有的照原样
       series: '星屑カジノ',
       languageEditions: [
         { code: 'RJ00398036', lang: 'JPN', label: '日本語' },
@@ -67,7 +67,13 @@ describe('parseProduct', () => {
       { code: 'RJ01099002', lang: 'ENG', label: '英語' },
       { code: 'RJ01099003', lang: 'CHI_HANS', label: '簡体中文' }
     ])
-    expect(p.genres).toEqual(['ドット', '冒険'])
+    expect(p.genres).toEqual(['像素', '冒険'])
+  })
+
+  it('类型词去掉 R-18G，按 id 用快照里的中文名（不同接口译名不同时也统一）', () => {
+    const genres = [{ id: 199, name: '猟奇' }, { id: 157, name: '催眠' }, { id: 431, name: 'ドット' }]
+    const p = parseProduct(JSON.stringify([{ workno: 'RJ01099009', work_name: 'x', maker_name: 'y', genres }]))!
+    expect(p.genres).toEqual(['暗示', '像素'])
   })
 
   it('language_editions 和 genres 是 null 或缺失时得到空数组', () => {

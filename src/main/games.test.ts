@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type Database from 'better-sqlite3'
 import { parseProduct } from '../core/dlsite'
-import { openDb } from './db'
+import { openDb, tagsToChinese } from './db'
 import { addGame, setLaunchFile } from './extract'
 import { applyDlsite, applyManual, listGames } from './games'
 
@@ -96,9 +96,9 @@ describe('listGames', () => {
     applyDlsite(db, id, detail, 'covers/1.jpg', ['ADV', 'RPG'], detail.title)
     setLaunchFile(db, id, 'Game.exe')
     db.prepare("UPDATE games SET uninstalled_at = ? WHERE id = ?").run(T, id)
-    const base = { coverSource: null, version: null, circle: null, playStatus: 'wishlist', uninstalled: false, useLocaleEmulator: false, tags: [], playSeconds: 0, lastPlayedAt: null }
+    const base = { coverSource: null, version: null, circle: null, playStatus: 'wishlist', uninstalled: false, useLocaleEmulator: false, tags: [], playSeconds: 0, lastPlayedAt: null, favorite: false }
     expect(listGames(db)).toEqual([
-      { ...base, id: b, title: 'B', folderName: 'B', coverFile: null, launchFile: 'b.exe', needsMetadata: true, dlsiteUrl: null, sourceKind: null, sourceRef: null, addedAt: '2026-11-04T00:00:00Z' },
+      { ...base, id: b, title: 'B', folderName: 'B', coverFile: null, launchFile: 'b.exe', needsMetadata: true, dlsiteUrl: null, sourceKind: null, sourceRef: null, addedAt: '2026-11-04T00:00:00Z', recentExtractAt: '2026-11-04T00:00:00Z' },
       {
         ...base,
         id,
@@ -114,7 +114,8 @@ describe('listGames', () => {
         sourceRef: 'RJ00473501',
         uninstalled: true,
         tags: ['ADV', 'RPG'],
-        addedAt: T
+        addedAt: T,
+        recentExtractAt: T
       }
     ])
   })
@@ -123,5 +124,22 @@ describe('listGames', () => {
 describe('迁移 005', () => {
   it('games 有 window_title，新游戏是 null', () => {
     expect(db.prepare('SELECT window_title FROM games WHERE id = ?').pluck().get(id)).toBeNull()
+  })
+})
+
+describe('迁移 006', () => {
+  it('新解压的游戏进“最近解压”，收藏默认关', () => {
+    expect(db.prepare('SELECT recent_extract_at, favorite FROM games WHERE id = ?').get(id)).toEqual({ recent_extract_at: T, favorite: 0 })
+  })
+  it('旧的日文类型词换成中文；中文的已经有了就并过去；对不上的不动', () => {
+    const b = addGame(db, { folderName: 'B', launchFile: null, members: [] }, T)
+    db.prepare('INSERT INTO tags (name) VALUES (?), (?), (?), (?)').run('ドット', 'ファンタジー', '奇幻', '我的标签')
+    const tag = (g: number, n: string) => db.prepare('INSERT INTO game_tags (game_id, tag_id) SELECT ?, id FROM tags WHERE name = ?').run(g, n)
+    tag(id, 'ドット'), tag(id, 'ファンタジー'), tag(b, '奇幻'), tag(b, 'ファンタジー'), tag(b, '我的标签')
+    tagsToChinese(db)
+    const names = (g: number) => db.prepare('SELECT t.name FROM game_tags gt JOIN tags t ON t.id = gt.tag_id WHERE gt.game_id = ? ORDER BY t.name').pluck().all(g)
+    expect(names(id)).toEqual(['像素', '奇幻'])
+    expect(names(b)).toEqual(['奇幻', '我的标签'])
+    expect(db.prepare('SELECT name FROM tags ORDER BY name').pluck().all()).toEqual(['像素', '奇幻', '我的标签'])
   })
 })

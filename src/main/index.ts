@@ -23,6 +23,8 @@ import { nameHints } from '../core/name-hints'
 import { searchKeyword } from '../core/names'
 import { extractVersion } from '../core/version'
 import { DEFAULT_SORT, type InboxSort } from '../core/inbox-view'
+import { DEFAULT_LIBRARY_SORT, DEFAULT_NAV, LIBRARY_SORT_KEYS, type LibrarySort, type NavPage } from '../core/library'
+import { DEFAULT_MY_TAGS, inLibrary } from '../core/genres'
 import { rankCandidates, type ProductDetail } from '../core/dlsite'
 import { createDlsiteClient } from '../core/dlsite-http'
 import type { PostExtractAction } from './extract'
@@ -375,6 +377,7 @@ app.whenReady().then(() => {
     if (!row.launch_file) throw new Error('还没选启动文件')
     const exe = join(g.dir, row.launch_file)
     if (!existsSync(exe)) throw new Error(`找不到启动文件：${exe}`)
+    db.prepare('UPDATE games SET recent_extract_at = NULL WHERE id = ?').run(g.id) // 启动一次就移出“最近解压”
     // 纯 HTML 游戏用默认浏览器打开。拿不到游戏进程，所以只记“上次游玩”，不计时长
     if (/.html?$/i.test(row.launch_file)) {
       const err = await shell.openPath(exe)
@@ -392,7 +395,8 @@ app.whenReady().then(() => {
   // 详情抽屉里能改的东西
   ipcMain.handle('games:update', (_e, id: unknown, patch: unknown) => {
     const g = gameRow(id)
-    const p = patch as { playStatus?: unknown; useLocaleEmulator?: unknown; title?: unknown; version?: unknown }
+    const p = patch as { playStatus?: unknown; useLocaleEmulator?: unknown; title?: unknown; version?: unknown; favorite?: unknown }
+    if (p.favorite !== undefined) db.prepare('UPDATE games SET favorite = ? WHERE id = ?').run(p.favorite === true ? 1 : 0, g.id)
     if (p.version !== undefined) {
       if (typeof p.version !== 'string' || p.version.length > 64) throw new Error('版本号不对')
       setVersion(db, g.id, p.version) // 手动改过的，以后接回新版本也不再自动覆盖
@@ -406,6 +410,17 @@ app.whenReady().then(() => {
       if (typeof p.title !== 'string' || !p.title.trim()) throw new Error('名称不能是空的')
       db.prepare('UPDATE games SET title = ? WHERE id = ?').run(p.title.trim(), g.id)
     }
+  })
+  // 游戏库“最近解压”的“清空”：只移出分组，游戏不动
+  ipcMain.handle('games:clear-recent', () => void db.prepare('UPDATE games SET recent_extract_at = NULL').run())
+  // 删除自定义标签：从所有游戏上摘掉，也从“我的标签”里去掉
+  ipcMain.handle('tags:delete', (_e, name: unknown) => {
+    if (typeof name !== 'string' || inLibrary(name)) throw new Error('只能删除自定义标签')
+    db.transaction(() => {
+      db.prepare('DELETE FROM tags WHERE name = ?').run(name)
+      setSetting(db, 'my_tags', myTags().filter((t) => t.toLowerCase() !== name.toLowerCase()))
+    })()
+    return settings()
   })
   ipcMain.handle('games:tag', (_e, id: unknown, name: unknown, on: unknown) => {
     const g = gameRow(id)
@@ -467,8 +482,15 @@ app.whenReady().then(() => {
     theme: (getSetting(db, 'theme') as 'system' | 'light' | 'dark' | null) ?? 'system',
     language: (getSetting(db, 'language') as string | null) ?? 'zh-CN',
     inboxSort: (getSetting(db, 'inbox_sort') as InboxSort | null) ?? DEFAULT_SORT,
-    captureHotkey: captureHotkey() // false = 关掉
+    captureHotkey: captureHotkey(), // false = 关掉
+    myTags: myTags(),
+    navOrder: (getSetting(db, 'nav_order') as NavPage[] | null) ?? DEFAULT_NAV,
+    librarySort: (getSetting(db, 'library_sort') as LibrarySort | null) ?? DEFAULT_LIBRARY_SORT
   })
+  // “我的标签”：筛选里显示的词、识别时默认勾上的词。没改过就是内置的人气分类
+  function myTags(): string[] {
+    return (getSetting(db, 'my_tags') as string[] | null) ?? DEFAULT_MY_TAGS
+  }
   ipcMain.handle('settings:get', settings)
   ipcMain.handle('settings:set', (_e, key: unknown, value: unknown) => {
     const ok: Record<string, (v: unknown) => boolean> = {
@@ -480,6 +502,9 @@ app.whenReady().then(() => {
       locale_emulator_path: (v) => v === null,
       language: (v) => typeof v === 'string' && /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(v), // 有哪些语言由界面决定
       inbox_sort: (v) => ['modified', 'name', 'size', 'added'].includes((v as InboxSort)?.key) && typeof (v as InboxSort).desc === 'boolean' && Object.keys(v as object).length === 2,
+      my_tags: (v) => Array.isArray(v) && v.length <= 2000 && v.every((t) => typeof t === 'string' && t.trim() !== '' && t.length <= 64),
+      nav_order: (v) => Array.isArray(v) && v.length === DEFAULT_NAV.length && DEFAULT_NAV.every((k) => v.includes(k)),
+      library_sort: (v) => LIBRARY_SORT_KEYS.includes((v as LibrarySort)?.key) && typeof (v as LibrarySort).desc === 'boolean' && Object.keys(v as object).length === 2,
       capture_hotkey: (v) => v === false || (typeof v === 'string' && /^[A-Za-z0-9+]{1,64}$/.test(v)) // Electron 的快捷键写法，如 CommandOrControl+Alt+F12
     }
     if (!ok[key as string]?.(value)) throw new Error('设置项不对')

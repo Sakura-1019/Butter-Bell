@@ -1,12 +1,21 @@
 {
   "nav": {
-    "all": "全部游戏",
-    "inbox": "待解压",
     "recent": "最近游玩",
-    "settings": "设置"
+    "library": "游戏库",
+    "favorites": "收藏",
+    "inbox": "待解压",
+    "completed": "已通关",
+    "uninstalled": "已卸载",
+    "settings": "设置",
+    "dragHint": "长按可以拖动排序"
   },
   "library": {
-    "empty": "游戏库还是空的。去“待解压”里勾选压缩包解压，解压好的游戏会出现在这里。",
+    "empty": {
+      "library": "游戏库还是空的。去“待解压”里勾选压缩包解压，解压好的游戏会出现在这里。",
+      "favorites": "还没有收藏。点封面右上角的星就能收藏。",
+      "completed": "还没有通关的游戏。",
+      "uninstalled": "没有已卸载的游戏。"
+    },
     "needsCover": "待补封面",
     "needsMetadata": "待补信息",
     "privacy": "隐私",
@@ -15,12 +24,9 @@
     "view": "视图",
     "grid": "封面墙",
     "list": "列表",
-    "tags": "标签",
-    "clearTag": "清除",
     "running": "运行中",
     "uninstalled": "已卸载",
-    "noRecent": "还没有从 Butter Bell 启动过游戏",
-    "noTag": "这个标签下没有游戏",
+    "noRecent": "还没有从 Butter Bell 启动过游戏。",
     "circleUnknown": "社团未知",
     "col": {
       "name": "名称",
@@ -32,7 +38,21 @@
     "search": "搜索名称、社团、文件夹",
     "searchLabel": "搜索游戏",
     "noMatch": "没有找到“{{q}}”",
-    "clearSearch": "清除搜索"
+    "clearSearch": "清除搜索",
+    "goLibrary": "去游戏库",
+    "goInbox": "去解压",
+    "recentGroup": {
+      "d3": "3 天内",
+      "d7": "7 天内",
+      "d30": "30 天内",
+      "older": "更早"
+    },
+    "recentExtract": "最近解压",
+    "clearRecent": "清空",
+    "rest": "其余游戏",
+    "favorite": "收藏",
+    "unfavorite": "取消收藏",
+    "favorited": "已收藏"
   },
   "size": {
     "gb": "{{n}} GB",
@@ -166,7 +186,7 @@
     "noResults": "没搜到。换个关键词试试，DLsite 用日文原名或 RJ 号搜最准。",
     "notFound": "DLsite 上查不到这个作品的详情，换一个候选或手动填写。",
     "error": "出错了：{{detail}}",
-    "genresHint": "DLsite 类型词，勾上的会加为标签：",
+    "genresHint": "DLsite 类型词，勾上的会加为标签（“我的标签”里的已默认勾上）：",
     "nameHint": "游戏名称：点词段可以去掉或加回前后缀，也可以直接改",
     "nameLabel": "游戏名称",
     "back": "返回",
@@ -207,7 +227,7 @@
     "status": "状态",
     "tags": "标签",
     "addTag": "添加",
-    "tagPlaceholder": "标签名，回车添加",
+    "tagPlaceholder": "新标签，回车添加",
     "removeTag": "移除标签 {{tag}}",
     "launchSec": "启动",
     "launchFile": "启动文件",
@@ -334,5 +354,41 @@
     "onStartHint": "只向 GitHub 问一次最新的版本号，不上传库里的任何信息，也不会自动下载",
     "github": "GitHub 项目主页",
     "openGithub": "打开"
+  },
+  "filter": {
+    "button": "筛选",
+    "status": "状态",
+    "tags": "标签",
+    "noTags": "还没有游戏用到“我的标签”里的词。",
+    "library": "全部标签",
+    "remove": "取消这个条件",
+    "clear": "清除筛选",
+    "clearAll": "清除条件",
+    "noMatch": "没有符合条件的游戏。",
+    "sort": {
+      "added": "加入时间",
+      "lastPlayed": "上次游玩",
+      "title": "名称",
+      "playtime": "游玩时长",
+      "addedDesc": "新的在前",
+      "addedAsc": "旧的在前",
+      "lastPlayedDesc": "最近玩的在前",
+      "lastPlayedAsc": "最早玩的在前",
+      "titleAsc": "A → Z",
+      "titleDesc": "Z → A",
+      "playtimeDesc": "时间长的在前",
+      "playtimeAsc": "时间短的在前"
+    },
+    "libHint": "点词加入或移出“我的标签”。筛选里只显示“我的标签”中有游戏在用的词，识别信息时也默认勾上它们。数字是用这个词的游戏数，灰色的还没有游戏用。",
+    "mine": "我的标签",
+    "removeMine": "把“{{tag}}”移出我的标签",
+    "addMine": "把“{{tag}}”加入我的标签",
+    "deleteCustom": "删除自定义标签“{{tag}}”",
+    "deleteConfirm": "删除自定义标签“{{tag}}”？会从 {{n}} 个游戏上摘掉。",
+    "delete": "删除",
+    "customPlaceholder": "自定义标签",
+    "add": "添加",
+    "catCount": "{{n}} 个词",
+    "catPicked": "已选 {{picked}} · {{n}} 个词"
   }
 }

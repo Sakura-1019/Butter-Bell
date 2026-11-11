@@ -545,3 +545,81 @@ body { user-select: none; }
 
 /* 工具栏的隐私按钮：只有眼睛图标（开着时换成划掉的眼睛并带底色），文字放在 aria-label 和悬停提示里 */
 .btn.icon { width: 34px; padding: 0; justify-content: center; }
+
+/* ---------- 0.3.0 导航（定稿原型 review\nav-prototype） ---------- */
+/* 左侧：长按拖动排序 */
+.navlist { display: flex; flex-direction: column; gap: 2px; }
+.navlist .nav { touch-action: none; }
+.nav.dragging { background: var(--surface); color: var(--text); box-shadow: var(--float-shadow); position: relative; z-index: 3; cursor: grabbing; transition: none; }
+
+/* 筛选区：“筛选”按钮 + 排序胶囊靠左，后面是已选的条件 */
+.fbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 14px var(--pad) 0; position: relative; }
+.fbar > .btn { margin-right: 2px; }
+.fbar .sortseg { margin-right: 4px; }
+.fbar .chev, .fpanel .chev, .cat-h .chev { display: inline-flex; transition: transform .2s var(--ease-out); }
+.fbar .chev svg.i, .fpanel .chev svg.i, .cat-h .chev svg.i { width: 14px; height: 14px; color: var(--muted); }
+[aria-expanded="true"] > .chev { transform: rotate(180deg); }
+.fchip { height: 30px; padding: 0 12px; border-radius: var(--radius-control); background: var(--raised); color: var(--muted); font-size: 13px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; transition: background .15s, color .15s; }
+.fchip:hover { background: var(--active); color: var(--text); }
+.fchip[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); font-weight: 500; }
+.fchip .c { font-size: 12px; opacity: .72; }
+.fchip[disabled] { opacity: .38; cursor: default; }
+.fchip[disabled]:hover { background: var(--raised); color: var(--muted); }
+.fchip.fplain { background: transparent; }
+.fchip.fx svg.i { width: 12px; height: 12px; }
+.fbadge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--primary); color: var(--on-primary); font-size: 11px; display: inline-grid; place-items: center; font-weight: 600; }
+.fpanel { position: absolute; left: var(--pad); top: 54px; width: min(620px, calc(100% - 2 * var(--pad))); max-height: calc(100vh - 160px); overflow-y: auto; background: var(--surface); border-radius: 16px; box-shadow: var(--float-shadow); padding: 16px 18px; z-index: 30; animation: pop .22s var(--ease-out); }
+.fpanel h3 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 8px; }
+.fpanel section + section { margin-top: 16px; }
+.fpanel .row { display: flex; flex-wrap: wrap; gap: 6px; }
+.fpanel .lib-toggle { margin-left: -12px; }
+
+/* 标签库 */
+.taglib { margin-top: 12px; }
+.lib-hint { font-size: 12.5px; color: var(--faint); margin: 0 0 12px; }
+.lib-sec { font-size: 13px; font-weight: 500; margin: 0 0 8px; }
+.lchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lchip { height: 28px; padding: 0 10px; border-radius: 6px; font-size: 12.5px; background: var(--raised); color: var(--text); display: inline-flex; align-items: center; gap: 5px; }
+.lchip:hover { background: var(--active); }
+.lchip .c { color: var(--faint); font-size: 11.5px; }
+.lchip.zero { color: var(--faint); }
+.lchip[aria-pressed="true"], .lchip[aria-pressed="true"]:hover { background: var(--primary); color: var(--on-primary); }
+.lchip[aria-pressed="true"] .c { color: inherit; opacity: .7; }
+.lchip .rm { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; color: var(--faint); margin-right: -4px; }
+.lchip .rm svg.i { width: 11px; height: 11px; }
+.lchip .rm:hover { color: var(--negative); }
+.lchip.custom { box-shadow: inset 0 0 0 1px var(--control); }
+.cat { border-top: 1px solid var(--rule); }
+.cat-h { width: 100%; height: 40px; display: flex; align-items: center; gap: 8px; font-size: 13px; text-align: left; color: var(--text); }
+.cat-h .n { color: var(--faint); font-size: 12px; }
+.cat-h .chev { margin-left: auto; }
+.cat .lchips { padding: 2px 0 14px; }
+.lib-add { display: flex; gap: 8px; align-items: center; margin: 14px 0; }
+.lib-add .input { width: 180px; }
+.lib-add .btn { height: 30px; }
+.lib-confirm { margin: 8px 0 0; display: flex; align-items: center; gap: 10px; font-size: 13px; background: var(--negative-soft); padding: 8px 12px; border-radius: 10px; }
+.lib-confirm .btn { height: 28px; }
+
+/* 收藏的星：封面右上角悬停才显示，收藏了的常驻（黄油黄是数据标记） */
+.card { cursor: pointer; }
+.cover-wrap { position: relative; }
+.star { position: absolute; right: 8px; top: 8px; width: 28px; height: 28px; border-radius: 50%; background: rgba(18,18,17,.62); color: #fff; display: grid; place-items: center; opacity: 0; transition: opacity .15s, transform .15s var(--ease-out); z-index: 2; }
+.star svg.i { width: 15px; height: 15px; }
+.card:hover .star, .card:focus-within .star, .star:focus-visible { opacity: 1; }
+.star.on { opacity: 1; color: #f2d78e; }
+.star.on svg.i { fill: #f2d78e; }
+.star:hover { transform: scale(1.08); }
+.d-namerow { display: flex; align-items: flex-start; gap: 8px; }
+.d-namerow h2 { flex: 1; min-width: 0; }
+.d-star { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); flex: none; transition: background .15s, color .15s; }
+.d-star:hover { background: var(--hover); color: var(--text); }
+.d-star svg.i { width: 19px; height: 19px; }
+.d-star.on, .d-star.on:hover { color: var(--accent-mark); }
+.d-star.on svg.i { fill: var(--accent-mark); }
+.ministar { display: inline-flex; margin-left: 6px; vertical-align: -2px; color: var(--accent-mark); }
+.ministar svg.i { width: 13px; height: 13px; fill: var(--accent-mark); }
+.shelf h2 { align-items: center; }
+.shelf-act { margin-left: auto; font-weight: 400; }
+.empty-acts { display: flex; gap: 8px; justify-content: center; }
+.picker { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.picker .input { height: 28px; width: 150px; }

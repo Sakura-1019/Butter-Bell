@@ -35,12 +35,12 @@ export function addFolder(db: Database.Database, f: { folderName: string; launch
     const back = looseFolders(db, [f.folderName]).reattach[0]
     if (!back)
       return Number(
-        db.prepare('INSERT INTO games (title, folder_name, launch_file, version, added_at) VALUES (?, ?, ?, ?, ?)').run(f.folderName, f.folderName, f.launchFile, f.version ?? null, now)
+        db.prepare('INSERT INTO games (title, folder_name, launch_file, version, added_at, recent_extract_at) VALUES (?, ?, ?, ?, ?, ?)').run(f.folderName, f.folderName, f.launchFile, f.version ?? null, now, now)
           .lastInsertRowid
       )
     const old = db.prepare('SELECT launch_file FROM games WHERE id = ?').pluck().get(back.gameId) as string | null
     const launch = old && f.launchCandidates.includes(old) ? old : f.launchFile
-    db.prepare('UPDATE games SET uninstalled_at = NULL, folder_name = ?, launch_file = ? WHERE id = ?').run(f.folderName, launch, back.gameId)
+    db.prepare('UPDATE games SET uninstalled_at = NULL, folder_name = ?, launch_file = ?, recent_extract_at = ? WHERE id = ?').run(f.folderName, launch, now, back.gameId)
     if (f.version) db.prepare('UPDATE games SET version = ? WHERE id = ? AND version_manual = 0').run(f.version, back.gameId)
     // 卸载时它的压缩包回了收件箱；游戏已经回来了，压缩包也回到“已解压”
     db.prepare("UPDATE archives SET state = 'extracted' WHERE game_id = ? AND state = 'inbox'").run(back.gameId)

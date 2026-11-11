@@ -1,8 +1,9 @@
-// 游戏库：封面墙（“全部游戏”按状态分成几组，每组放不下自动换行）和列表两种视图。
+// 游戏库：封面墙和列表两种视图，按传进来的分组显示（最近游玩的时间分组、游戏库的“最近解压”），每组放不下自动换行。
+import type { ReactNode } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { GameCard } from '../../preload'
-import { formatPlaytime, shelves } from '../../core/library'
+import { formatPlaytime } from '../../core/library'
 import { ICONS } from './icons'
 
 export const playtime = (t: TFunction, seconds: number) => {
@@ -35,18 +36,40 @@ export function Cover({ g, running, className = 'cover' }: { g: GameCard; runnin
   )
 }
 
-interface Props {
+export interface Section {
+  key: string
+  title: string | null // null = 不分组，没有标题
   games: GameCard[]
+  action?: ReactNode // 标题右边的按钮，如“最近解压”的清空
+}
+
+interface Props {
+  sections: Section[]
   running: Set<number>
   view: 'grid' | 'list'
-  grouped: boolean // “全部游戏”的封面墙按状态分排
   recent?: boolean // 最近游玩：卡片下面显示上次游玩和时长
   openId: number | null
   onOpen: (id: number) => void
+  onFavorite: (g: GameCard) => void
 }
 
-export default function Library({ games, running, view, grouped, recent, openId, onOpen }: Props) {
+export default function Library({ sections, running, view, recent, openId, onOpen, onFavorite }: Props) {
   const { t } = useTranslation()
+  const keyOpen = (e: React.KeyboardEvent, id: number) => (e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget && (e.preventDefault(), onOpen(id))
+
+  // 收藏的星：封面右上角，悬停才显示，收藏了的常驻。已卸载的不能收藏
+  const star = (g: GameCard) =>
+    !g.uninstalled && (
+      <button
+        className={g.favorite ? 'star on' : 'star'}
+        aria-pressed={g.favorite}
+        aria-label={t(g.favorite ? 'library.unfavorite' : 'library.favorite')}
+        title={t(g.favorite ? 'library.unfavorite' : 'library.favorite')}
+        onClick={(e) => (e.stopPropagation(), onFavorite(g))}
+      >
+        {ICONS.star}
+      </button>
+    )
 
   const card = (g: GameCard) => {
     let meta
@@ -61,61 +84,68 @@ export default function Library({ games, running, view, grouped, recent, openId,
         </>
       )
     return (
-      <button key={g.id} className={g.uninstalled ? 'card gone' : 'card'} aria-current={openId === g.id} onClick={() => onOpen(g.id)}>
-        <Cover g={g} running={running.has(g.id)} />
+      <div key={g.id} role="button" tabIndex={0} className={g.uninstalled ? 'card gone' : 'card'} aria-current={openId === g.id} onClick={() => onOpen(g.id)} onKeyDown={(e) => keyOpen(e, g.id)}>
+        <div className="cover-wrap">
+          <Cover g={g} running={running.has(g.id)} />
+          {star(g)}
+        </div>
         <div>
           <div className="name" title={g.title}>{g.title}</div>
           <div className="meta num">{meta}</div>
         </div>
-      </button>
+      </div>
     )
   }
 
-  if (view === 'list')
-    return (
-      <table className="list">
-        <thead>
-          <tr>
-            {(['name', 'status', 'tags'] as const).map((k) => <th key={k}>{t(`library.col.${k}`)}</th>)}
-            <th className="num">{t('library.col.playtime')}</th>
-            <th className="num">{t('library.col.last')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {games.map((g) => (
-            <tr key={g.id} className={g.uninstalled ? 'row gone' : 'row'} aria-current={openId === g.id} tabIndex={0} onClick={() => onOpen(g.id)} onKeyDown={(e) => e.key === 'Enter' && onOpen(g.id)}>
-              <td>
-                <div className="namecell">
-                  <div className="thumb">{g.coverFile && <img src={coverSrc(g.coverFile)} alt="" loading="lazy" />}</div>
-                  <div className="grow">
-                    <div className="nm">{g.title}</div>
-                    <div className="mk">{g.circle}</div>
+  const table = (games: GameCard[]) => (
+    <table className="list">
+      <thead>
+        <tr>
+          {(['name', 'status', 'tags'] as const).map((k) => <th key={k}>{t(`library.col.${k}`)}</th>)}
+          <th className="num">{t('library.col.playtime')}</th>
+          <th className="num">{t('library.col.last')}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {games.map((g) => (
+          <tr key={g.id} className={g.uninstalled ? 'row gone' : 'row'} aria-current={openId === g.id} tabIndex={0} onClick={() => onOpen(g.id)} onKeyDown={(e) => keyOpen(e, g.id)}>
+            <td>
+              <div className="namecell">
+                <div className="thumb">{g.coverFile && <img src={coverSrc(g.coverFile)} alt="" loading="lazy" />}</div>
+                <div className="grow">
+                  <div className="nm">
+                    {g.title}
+                    {g.favorite && !g.uninstalled && <span className="ministar" title={t('library.favorited')}>{ICONS.star}</span>}
                   </div>
+                  <div className="mk">{g.circle}</div>
                 </div>
-              </td>
-              <td>
-                {running.has(g.id) ? (
-                  <span className="pill playing"><span className="dot" />{t('library.running')}</span>
-                ) : (
-                  <span className={g.playStatus === 'playing' && !g.uninstalled ? 'pill playing' : 'pill'}>{t(`status.${g.uninstalled ? 'uninstalled' : g.playStatus}`)}</span>
-                )}
-              </td>
-              <td><div className="chips">{g.tags.map((x) => <span key={x} className="chip">{x}</span>)}</div></td>
-              <td className="num muted">{g.playSeconds ? playtime(t, g.playSeconds) : t('time.none')}</td>
-              <td className="num muted">{lastPlayed(t, g.lastPlayedAt)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    )
+              </div>
+            </td>
+            <td>
+              {running.has(g.id) ? (
+                <span className="pill playing"><span className="dot" />{t('library.running')}</span>
+              ) : (
+                <span className={g.playStatus === 'playing' && !g.uninstalled ? 'pill playing' : 'pill'}>{t(`status.${g.uninstalled ? 'uninstalled' : g.playStatus}`)}</span>
+              )}
+            </td>
+            <td><div className="chips">{g.tags.map((x) => <span key={x} className="chip">{x}</span>)}</div></td>
+            <td className="num muted">{g.playSeconds ? playtime(t, g.playSeconds) : t('time.none')}</td>
+            <td className="num muted">{lastPlayed(t, g.lastPlayedAt)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
 
-  if (grouped)
-    return shelves(games).map(([k, list]) => (
-      <section key={k} className="shelf">
-        <h2>{t(`status.${k}`)}<span className="n num">{list.length}</span></h2>
-        <div className="wall">{list.map(card)}</div>
+  const body = (games: GameCard[]) => (view === 'list' ? table(games) : <div className="wall">{games.map(card)}</div>)
+  return sections.map((s) =>
+    s.title === null ? (
+      <div key={s.key}>{body(s.games)}</div>
+    ) : (
+      <section key={s.key} className="shelf">
+        <h2>{s.title}<span className="n num">{s.games.length}</span>{s.action}</h2>
+        {body(s.games)}
       </section>
-    ))
-
-  return <div className="wall">{games.map(card)}</div>
+    )
+  )
 }

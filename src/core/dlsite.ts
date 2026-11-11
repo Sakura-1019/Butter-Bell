@@ -1,5 +1,6 @@
 // DLsite 解析：搜索结果页 HTML 和 product.json。只解析，不联网（联网见 dlsite-http.ts）。
 import { normalizeForMatch } from './names'
+import { genreTags } from './genres'
 
 // 一条候选（见 GLOSSARY.md），用户必须亲自点选
 export interface Candidate {
@@ -16,7 +17,7 @@ export interface ProductDetail {
   circle: string
   releaseDate: string // YYYY-MM-DD
   description: string
-  genres: string[] // DLsite 类型词，不是标签
+  genres: string[] // DLsite 类型词，不是标签。已按 id 换成标签库的中文名，R-18G 去掉（genres.ts）
   coverUrl: string
   series: string | null
   languageEditions: { code: string; lang: string; label: string }[]
@@ -45,7 +46,7 @@ export function parseProduct(json: string): ProductDetail | null {
     circle: p.maker_name,
     releaseDate: String(p.regist_date ?? '').slice(0, 10),
     description: p.intro_s ?? '',
-    genres: list(p.genres).map((g: { name: string }) => g.name),
+    genres: genreTags(list(p.genres).map((g: { id: unknown; name: string }) => ({ id: Number(g.id), name: g.name }))),
     coverUrl: absolute(p.image_main?.url ?? ''),
     series: p.series_name || null,
     languageEditions: list(p.language_editions).map((e: any) => ({ code: e.workno, lang: e.lang, label: e.label }))

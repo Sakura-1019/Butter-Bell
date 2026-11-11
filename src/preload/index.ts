@@ -10,6 +10,7 @@ import type { CommonPassword } from '../main/passwords'
 import type { listIgnored } from '../main/inbox'
 import type { Release } from '../core/update'
 import type { InboxSort } from '../core/inbox-view'
+import type { LibrarySort, NavPage } from '../core/library'
 
 export interface Settings {
   archiveDir: string | null
@@ -23,9 +24,12 @@ export interface Settings {
   language: string
   inboxSort: InboxSort // 待解压列表的排序，默认下载时间、新的在前
   captureHotkey: string | false // 手动截图的全局快捷键（Electron 写法）；false = 关掉
+  myTags: string[] // 我的标签：筛选里显示、识别时默认勾上的词
+  navOrder: NavPage[] // 左侧导航的顺序
+  librarySort: LibrarySort // 游戏库、收藏、已通关的排序
 }
 export type LaunchOptions = LaunchRanking & { current: string | null }
-export type SettingKey = 'post_extract_action' | 'privacy_mode' | 'privacy_on_start' | 'check_updates' | 'theme' | 'locale_emulator_path' | 'language' | 'inbox_sort' | 'capture_hotkey'
+export type SettingKey = 'post_extract_action' | 'privacy_mode' | 'privacy_on_start' | 'check_updates' | 'theme' | 'locale_emulator_path' | 'language' | 'inbox_sort' | 'capture_hotkey' | 'my_tags' | 'nav_order' | 'library_sort'
 export interface UpdateState {
   configured: boolean // package.json 里写了仓库；没写就不检查
   repoUrl: string | null // 仓库页面，设置页“更新”一节的链接
@@ -72,9 +76,11 @@ const api = {
       ipcRenderer.invoke('games:apply-dlsite', id, code, tags, replaceManual, title),
     applyManual: (id: number, title: string, cover: Uint8Array | null): Promise<void> => ipcRenderer.invoke('games:apply-manual', id, title, cover),
     launch: (id: number): Promise<void> => ipcRenderer.invoke('games:launch', id),
-    update: (id: number, patch: { playStatus?: GameCard['playStatus']; useLocaleEmulator?: boolean; title?: string; version?: string }): Promise<void> =>
+    update: (id: number, patch: { playStatus?: GameCard['playStatus']; useLocaleEmulator?: boolean; title?: string; version?: string; favorite?: boolean }): Promise<void> =>
       ipcRenderer.invoke('games:update', id, patch),
     tag: (id: number, name: string, on: boolean): Promise<void> => ipcRenderer.invoke('games:tag', id, name, on),
+    clearRecent: (): Promise<void> => ipcRenderer.invoke('games:clear-recent'), // 游戏库“最近解压”的清空
+    deleteTag: (name: string): Promise<Settings> => ipcRenderer.invoke('tags:delete', name), // 删除自定义标签，从所有游戏上摘掉
     setCover: (id: number, cover: Uint8Array): Promise<void> => ipcRenderer.invoke('games:set-cover', id, cover),
     openFolder: (id: number): Promise<void> => ipcRenderer.invoke('games:open-folder', id),
     openDlsite: (id: number): Promise<void> => ipcRenderer.invoke('games:open-dlsite', id),

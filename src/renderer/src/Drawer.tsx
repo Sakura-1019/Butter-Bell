@@ -19,12 +19,14 @@ interface Props {
   game: GameCard | undefined // undefined = 关着
   running: Running | undefined
   leReady: boolean // 设置里指定了 LEProc.exe
+  myTags: string[] // 加标签时列出来的词
+  onMyTags: (tags: string[]) => void // 新起的标签也加进我的标签
   onChange: () => void // 改了什么，重新拉一次游戏列表
   onClose: () => void
   onError: (msg: string) => void
 }
 
-export default function Drawer({ game, running, leReady, onChange, onClose, onError }: Props) {
+export default function Drawer({ game, running, leReady, myTags, onMyTags, onChange, onClose, onError }: Props) {
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && !document.querySelector('.modal-wrap') && onClose()
     window.addEventListener('keydown', esc)
@@ -34,13 +36,13 @@ export default function Drawer({ game, running, leReady, onChange, onClose, onEr
     <>
       {game && <div className="scrim" onMouseDown={onClose} />}
       <aside className={game ? 'drawer open' : 'drawer'} aria-hidden={!game}>
-        {game && <Body key={game.id} g={game} running={running} leReady={leReady} onChange={onChange} onClose={onClose} onError={onError} />}
+        {game && <Body key={game.id} g={game} running={running} leReady={leReady} myTags={myTags} onMyTags={onMyTags} onChange={onChange} onClose={onClose} onError={onError} />}
       </aside>
     </>
   )
 }
 
-function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard } & Omit<Props, 'game'>) {
+function Body({ g, running, leReady, myTags, onMyTags, onChange, onClose, onError }: { g: GameCard } & Omit<Props, 'game'>) {
   const { t } = useTranslation()
   const [confirm, setConfirm] = useState<'uninstall' | 'purge' | null>(null)
   const [modal, setModal] = useState<'identify' | 'launch' | null>(null)
@@ -168,7 +170,21 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
             onKeyDown={(e) => e.key === 'Enter' && saveTitle()}
           />
         ) : (
-          <h2 className="sel">{g.title}</h2>
+          <div className="d-namerow">
+            <h2 className="sel">{g.title}</h2>
+            {/* 收藏：名称旁边一颗星，黄油黄。已卸载的不能收藏 */}
+            {!g.uninstalled && (
+              <button
+                className={g.favorite ? 'd-star on' : 'd-star'}
+                aria-pressed={g.favorite}
+                aria-label={t(g.favorite ? 'library.unfavorite' : 'library.favorite')}
+                title={t(g.favorite ? 'library.unfavorite' : 'library.favorite')}
+                onClick={() => act(() => window.api.games.update(g.id, { favorite: !g.favorite }))}
+              >
+                {ICONS.star}
+              </button>
+            )}
+          </div>
         )}
         <div className="maker sel">{g.circle || t('library.circleUnknown')}</div>
         <div className="d-edit">
@@ -270,25 +286,34 @@ function Body({ g, running, leReady, onChange, onClose, onError }: { g: GameCard
               <button onClick={() => act(() => window.api.games.tag(g.id, tag, false))} aria-label={t('drawer.removeTag', { tag })}>{ICONS.x}</button>
             </span>
           ))}
-          {addingTag ? (
+          <button className="add" aria-expanded={addingTag} onClick={() => setAddingTag(!addingTag)}>{ICONS.plus}{t('drawer.addTag')}</button>
+        </div>
+        {/* 加标签：先列出我的标签里还没加的词，也可以起一个新的（新的同时加进我的标签） */}
+        {addingTag && (
+          <div className="picker">
+            {myTags
+              .filter((x) => !g.tags.some((y) => y.toLowerCase() === x.toLowerCase()))
+              .map((x) => (
+                <button key={x} className="lchip" onClick={() => act(() => window.api.games.tag(g.id, x, true))}>{x}</button>
+              ))}
             <input
               autoFocus
+              className="input"
+              maxLength={64}
               placeholder={t('drawer.tagPlaceholder')}
               aria-label={t('drawer.tagPlaceholder')}
-              onBlur={() => setAddingTag(false)}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') e.stopPropagation(), setAddingTag(false)
-                if (e.key === 'Enter' && e.currentTarget.value.trim()) {
-                  const name = e.currentTarget.value
+                const name = e.currentTarget.value.trim()
+                if (e.key === 'Enter' && name) {
                   e.currentTarget.value = '' // 留着输入框，可以连续加
+                  if (!myTags.some((x) => x.toLowerCase() === name.toLowerCase())) onMyTags([...myTags, name])
                   act(() => window.api.games.tag(g.id, name, true))
                 }
               }}
             />
-          ) : (
-            <button className="add" onClick={() => setAddingTag(true)}>{ICONS.plus}{t('drawer.addTag')}</button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {!g.uninstalled && (
